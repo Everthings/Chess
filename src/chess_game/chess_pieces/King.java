@@ -149,33 +149,74 @@ public class King extends Piece{
 		
 		Players p = ChessBoard[pair.y][pair.x].getColor();
 		
-		if(kingCastle){
-			if(pair.x + 3 < 8){
-				if(ChessBoard[pair.y][pair.x + 3].getType() == PieceTypes.ROOK){
-					if(ChessBoard[pair.y][pair.x + 1].equals(new Empty())){
-						if(ChessBoard[pair.y][pair.x + 2].equals(new Empty())){
-							if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessBoard, WKingPos, BKingPos))
-								if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x + 3, pair.y), ChessBoard), WKingPos, BKingPos))
-									possibleMoves[pair.y][pair.x + 3] = MoveStates.CASTLE;
-						}
-					}
+		int firstRook = -1;
+		int secondRook = -1;
+		for(int i = 0; i < 8; i++){
+			if(ChessBoard[pair.y][i].equals(new Rook(p))){
+				if(firstRook == -1)
+					firstRook = i;
+				else{
+					secondRook = i;
+					break;
 				}
 			}
 		}
-
-		if(queenCastle){
-			if(pair.x - 4 > -1){
-				if(ChessBoard[pair.y][pair.x - 4].getType() == PieceTypes.ROOK){
-					if(ChessBoard[pair.y][pair.x - 1].equals(new Empty())){
-						if(ChessBoard[pair.y][pair.x - 2].equals(new Empty())){
-							if(ChessBoard[pair.y][pair.x - 3].equals(new Empty())){
-								if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessBoard, WKingPos, BKingPos))
-									if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x - 4, pair.y), ChessBoard), WKingPos, BKingPos))
-										possibleMoves[pair.y][pair.x - 4] = MoveStates.CASTLE;
-							}	
-						}
-					}	
+		
+		if(kingCastle && secondRook != -1){
+			
+			boolean isEmpty = true;
+			int endCheckPos = secondRook;
+			if(endCheckPos < 6){
+				endCheckPos = 6;
+			}
+			for(int i = pair.x + 1; i < endCheckPos; i++){
+				if(!ChessBoard[pair.y][i].equals(new Empty()) && i != secondRook){
+					isEmpty = false;
+					break;
 				}
+			}
+			
+			
+			if(isEmpty){
+				if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessBoard, WKingPos, BKingPos)){
+					if(p == Players.WHITE){
+						if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(6, pair.y), ChessBoard), new Pair(6, pair.y), BKingPos))
+							possibleMoves[pair.y][secondRook] = MoveStates.CASTLE;
+					}else{
+						if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(6, pair.y), ChessBoard), WKingPos, new Pair(6, pair.y)))
+							possibleMoves[pair.y][secondRook] = MoveStates.CASTLE;
+					}
+				}
+			}
+
+		}
+
+		if(queenCastle && firstRook != -1){
+			
+			boolean isEmpty = true;
+			int startCheckPos = firstRook + 1;
+			if(startCheckPos > 2){
+				startCheckPos = 2;
+			}
+			for(int i = startCheckPos; i < pair.x; i++){
+				if(!ChessBoard[pair.y][i].equals(new Empty()) && i != firstRook){
+					isEmpty = false;
+					break;
+				}
+			}
+			
+			if(isEmpty){
+				if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessBoard, WKingPos, BKingPos)){
+					if(p == Players.WHITE){
+						if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(2, pair.y), ChessBoard), new Pair(2, pair.y), BKingPos)){
+							possibleMoves[pair.y][firstRook] = MoveStates.CASTLE;
+						}
+					}else{
+						if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(2, pair.y), ChessBoard), WKingPos, new Pair(2, pair.y))){
+							possibleMoves[pair.y][firstRook] = MoveStates.CASTLE;
+						}
+					}
+				}	
 			}
 		}
 	}

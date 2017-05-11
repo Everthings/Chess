@@ -5,7 +5,7 @@ import chess_game.Pair;
 import chess_game.PieceTypes;
 import chess_game.Players;
 
-public abstract class Piece {
+public abstract class Piece implements Cloneable{
 	private Players color;
 	private PieceTypes type;
 	
@@ -22,6 +22,10 @@ public abstract class Piece {
 		return type;
 	}
 	
+	public void setColor(Players p){
+		this.color = p;
+	}
+	
 	@Override 
 	public boolean equals(Object o){
 		if(o instanceof Piece){
@@ -36,4 +40,13 @@ public abstract class Piece {
 	
 	public abstract MoveStates[][] getPossibleMoves(Pair pair, Piece[][] ChessBoard,  Pair WKingPos, Pair BKingPos,
 			boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, boolean checkForResultingCheck);
+
+	@Override
+	public Object clone() {
+		try{  
+			return super.clone(); 
+		}catch(Exception e){ 
+			return null; 
+		}
+	}
 }

@@ -32,13 +32,13 @@ public class Pawn extends Piece{
 				if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x, 4), ChessBoard), WKingPos, BKingPos))
 					possibleMoves[4][pair.x] = MoveStates.OPEN;
 			}
-			if(pair.y < 7 && pair.x < 7){
+			if(pair.y > 0 && pair.x < 7){
 				if(ChessBoard[pair.y - 1][pair.x + 1].getColor() == Players.BLACK){
 					if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x + 1, pair.y - 1), ChessBoard), WKingPos, BKingPos))
 						possibleMoves[pair.y - 1][pair.x + 1] = MoveStates.OPEN;
 				}
 			}
-			if(pair.y < 7 && pair.x > 0){
+			if(pair.y > 0 && pair.x > 0){
 				if(ChessBoard[pair.y - 1][pair.x - 1].getColor() == Players.BLACK){
 					if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x - 1, pair.y - 1), ChessBoard), WKingPos, BKingPos))
 						possibleMoves[pair.y - 1][pair.x - 1] = MoveStates.OPEN;
@@ -71,5 +71,4 @@ public class Pawn extends Piece{
 		
 		return possibleMoves;
 	}
-
 }

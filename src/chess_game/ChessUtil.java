@@ -17,7 +17,7 @@ public class ChessUtil {
 		return possibleMoves;
 	}
 	
-	public static MoveStates[][] getAllPossibleMoves(Piece[][] ChessBoard,  Pair WKingPos, Pair BKingPos,
+	public static MoveStates[][] getAllPossibleMoves(Players p, Piece[][] ChessBoard,  Pair WKingPos, Pair BKingPos,
 			boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, boolean checkForResultingCheck){
 		
 		MoveStates[][] possibleMoves = new MoveStates[ChessBoard.length][ChessBoard[0].length];
@@ -26,7 +26,7 @@ public class ChessUtil {
 			for(int b = 0; b < 8; b++){
 				Piece piece = ChessBoard[b][a];
 				
-				if(!piece.equals(new Empty())){
+				if(!piece.equals(new Empty()) && piece.getColor() == p){
 					MoveStates[][] temp = piece.getPossibleMoves(new Pair(a, b), ChessBoard, WKingPos, BKingPos, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, checkForResultingCheck);
 					
 					for(int i = 0; i < 8; i++){
@@ -45,7 +45,6 @@ public class ChessUtil {
 		
 		return possibleMoves;
 	}
-	
 	
 	public static void initPossibleMovesArray(MoveStates[][] possibleMoves){
 		for(int a = 0; a < 8; a++){
@@ -68,11 +67,12 @@ public class ChessUtil {
 		return possibleMoves;
 	}
 
+	/*
+	public static boolean isMate(Players p, Piece[][] ChessBoard, Pair WKingPos, Pair BKingPos){
+		
+	}
+	*/
 	
-	//public static boolean isMate(){
-
-	//}
-
 	public static boolean isCheck(Players p, Piece[][] ChessBoard, Pair WKingPos, Pair BKingPos){
 		
 		MoveStates[][] possibleMoves = new MoveStates[ChessBoard.length][ChessBoard[0].length];
@@ -109,9 +109,7 @@ public class ChessUtil {
 		Piece[][] newBoard =  new Piece[ChessBoard.length][ChessBoard[0].length];
 		
 		for(int a = 0; a < 8; a++){
-			for(int b = 0; b < 8; b++){
-				newBoard[a][b] = ChessBoard[a][b];
-			}
+			newBoard[a] = ChessBoard[a].clone();
 		}
 		
 		newBoard[moveTo.y][moveTo.x] = newBoard[initial.y][initial.x];

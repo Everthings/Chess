@@ -19,5 +19,4 @@ public class Empty extends Piece{
 		
 		return null;
 	}
-
 }
