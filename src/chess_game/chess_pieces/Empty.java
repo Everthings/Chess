@@ -13,7 +13,7 @@ public class Empty extends Piece{
 
 	@Override
 	public MoveStates[][] getPossibleMoves(Pair pair, Piece[][] ChessBoard,
-			Pair WKingPos, Pair BKingPos, boolean whiteKingCastle,
+			Pair WKingPos, Pair BKingPos, int numHalfMoves, boolean whiteKingCastle,
 			boolean whiteQueenCastle, boolean blackKingCastle,
 			boolean blackQueenCastle, boolean checkForResultingCheck) {
 		

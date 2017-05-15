@@ -14,7 +14,7 @@ public class King extends Piece{
 
 	@Override
 	public MoveStates[][] getPossibleMoves(Pair pair, Piece[][] ChessBoard,
-			Pair WKingPos, Pair BKingPos, boolean whiteKingCastle,
+			Pair WKingPos, Pair BKingPos, int numHalfMoves, boolean whiteKingCastle,
 			boolean whiteQueenCastle, boolean blackKingCastle,
 			boolean blackQueenCastle, boolean checkForResultingCheck) {
 		
@@ -165,12 +165,17 @@ public class King extends Piece{
 		if(kingCastle && secondRook != -1){
 			
 			boolean isEmpty = true;
-			int endCheckPos = secondRook;
+			int startCheckPos = pair.x + 1;
+			if(startCheckPos > 5){
+				startCheckPos = 5;
+			}
+			int endCheckPos = secondRook - 1;
 			if(endCheckPos < 6){
 				endCheckPos = 6;
 			}
-			for(int i = pair.x + 1; i < endCheckPos; i++){
-				if(!ChessBoard[pair.y][i].equals(new Empty()) && i != secondRook){
+			
+			for(int i = startCheckPos; i <= endCheckPos; i++){
+				if(!ChessBoard[pair.y][i].equals(new Empty()) && i != secondRook && i != pair.x){
 					isEmpty = false;
 					break;
 				}
@@ -198,8 +203,13 @@ public class King extends Piece{
 			if(startCheckPos > 2){
 				startCheckPos = 2;
 			}
-			for(int i = startCheckPos; i < pair.x; i++){
-				if(!ChessBoard[pair.y][i].equals(new Empty()) && i != firstRook){
+			int endCheckPos = pair.x - 1;
+			if(endCheckPos < 3){
+				endCheckPos = 3;
+			}
+			
+			for(int i = startCheckPos; i <= endCheckPos; i++){
+				if(!ChessBoard[pair.y][i].equals(new Empty()) && i != firstRook && i != pair.x){
 					isEmpty = false;
 					break;
 				}

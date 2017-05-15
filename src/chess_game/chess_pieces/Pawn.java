@@ -7,14 +7,14 @@ import chess_game.PieceTypes;
 import chess_game.Players;
 
 public class Pawn extends Piece{
-
+	
 	public Pawn(Players color) {
 		super(color, PieceTypes.PAWN);
 	}
-
+	
 	@Override
 	public MoveStates[][] getPossibleMoves(Pair pair, Piece[][] ChessBoard,
-			Pair WKingPos, Pair BKingPos, boolean whiteKingCastle,
+			Pair WKingPos, Pair BKingPos, int numHalfMoves, boolean whiteKingCastle,
 			boolean whiteQueenCastle, boolean blackKingCastle,
 			boolean blackQueenCastle, boolean checkForResultingCheck) {
 	
@@ -44,6 +44,21 @@ public class Pawn extends Piece{
 						possibleMoves[pair.y - 1][pair.x - 1] = MoveStates.OPEN;
 				}
 			}
+			
+			if(pair.y == 3){
+				if(pair.x - 1 >= 0 && ChessBoard[pair.y][pair.x - 1].getLastMoveTurn() == numHalfMoves - 1){
+					if(ChessBoard[pair.y][pair.x - 1].getColor() == Players.BLACK && ChessBoard[pair.y][pair.x - 1].getMoveCount() == 1){
+						if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x - 1, pair.y - 1), ChessBoard), WKingPos, BKingPos))
+							possibleMoves[pair.y - 1][pair.x - 1] = MoveStates.PASSANT;
+					}
+				}
+				if(pair.x + 1 <= 7 && ChessBoard[pair.y][pair.x + 1].getLastMoveTurn() == numHalfMoves - 1){
+					if(ChessBoard[pair.y][pair.x + 1].getColor() == Players.BLACK && ChessBoard[pair.y][pair.x + 1].getMoveCount() == 1){
+						if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x + 1, pair.y - 1), ChessBoard), WKingPos, BKingPos))
+							possibleMoves[pair.y - 1][pair.x + 1] = MoveStates.PASSANT;
+					}
+				}
+			}
 		}
 
 		if(p == Players.BLACK){
@@ -55,16 +70,31 @@ public class Pawn extends Piece{
 				if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x, pair.y + 1), ChessBoard), WKingPos, BKingPos))
 					possibleMoves[pair.y + 1][pair.x] = MoveStates.OPEN;
 			}
-			if(pair.y > 0 && pair.x < 7){
+			if(pair.y < 7 && pair.x < 7){
 				if(ChessBoard[pair.y + 1][pair.x + 1].getColor() == Players.WHITE){
 					if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x + 1, pair.y + 1), ChessBoard), WKingPos, BKingPos))
 						possibleMoves[pair.y + 1][pair.x + 1] = MoveStates.OPEN;
 				}
 			}
-			if( pair.y > 0 && pair.x > 0){
+			if(pair.y < 7 && pair.x > 0){
 				if(ChessBoard[pair.y + 1][pair.x - 1].getColor() == Players.WHITE){
 					if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x - 1, pair.y + 1), ChessBoard), WKingPos, BKingPos))
 						possibleMoves[pair.y + 1][pair.x - 1] = MoveStates.OPEN;
+				}
+			}
+			
+			if(pair.y == 4){
+				if(pair.x - 1 >= 0 && ChessBoard[pair.y][pair.x - 1].getLastMoveTurn() == numHalfMoves - 1){
+					if(ChessBoard[pair.y][pair.x - 1].getColor() == Players.WHITE && ChessBoard[pair.y][pair.x - 1].getMoveCount() == 1){
+						if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x - 1, pair.y + 1), ChessBoard), WKingPos, BKingPos))
+							possibleMoves[pair.y + 1][pair.x - 1] = MoveStates.PASSANT;
+					}
+				}
+				if(pair.x + 1 <= 7 && ChessBoard[pair.y][pair.x + 1].getLastMoveTurn() == numHalfMoves - 1){
+					if(ChessBoard[pair.y][pair.x + 1].getColor() == Players.WHITE && ChessBoard[pair.y][pair.x + 1].getMoveCount() == 1){
+						if(!checkForResultingCheck || !ChessUtil.isCheck(p, ChessUtil.getChessBoardAfterMove(pair, new Pair(pair.x + 1, pair.y + 1), ChessBoard), WKingPos, BKingPos))
+							possibleMoves[pair.y + 1][pair.x + 1] = MoveStates.PASSANT;
+					}
 				}
 			}
 		}	

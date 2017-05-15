@@ -12,17 +12,13 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import javax.imageio.ImageIO;
-import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
@@ -34,19 +30,22 @@ import chess_game.chess_pieces.Pawn;
 import chess_game.chess_pieces.Piece;
 import chess_game.chess_pieces.Queen;
 import chess_game.chess_pieces.Rook;
+import chess_game.listeners.OptionListener;
+import chess_game.listeners.SelectionListener;
 
 @SuppressWarnings("serial")
 public class Game extends JPanel implements MouseListener, MouseMotionListener{
 
+	int gameType;
 	int response;
-	final int AI = 0;
-	final int HUMAN = 1;
+	final int HUMAN = 0;
+	final int AI = 1;
 
 	JTextField WhiteText = new JTextField("White's Turn");
 	JTextField BlackText = new JTextField("Black's Turn");
 
-	final int WIDTH = 75;
-	final int HEIGHT = 75;
+	final int BLOCK_WIDTH = 75;
+	final int BLOCK_HEIGHT = 75;
 
 	Players player = Players.WHITE;
 
@@ -81,7 +80,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	int mx = 0;
 	int my = 0;
 	
-	boolean animating = false;
+	volatile boolean animating = false;
 	BufferedImage animatedImage;
 	double animateX;
 	double animateY;
@@ -103,7 +102,11 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	int numHalfMoves = 0;
 	
 	Random rand;
-	Object lock = new Object();
+	Object selectorLock = new Object();
+	Object animateLock = new Object();
+	Object optionScreenLock = new Object();
+	
+	PieceSelector pSelect = null;
 	
 	Piece[][] ChessBoard = {{new Rook(Players.BLACK), new Knight(Players.BLACK), new Bishop(Players.BLACK), new Queen(Players.BLACK), new King(Players.BLACK), new Bishop(Players.BLACK), new Knight(Players.BLACK), new Rook(Players.BLACK)},
 			{new Pawn(Players.BLACK), new Pawn(Players.BLACK), new Pawn(Players.BLACK), new Pawn(Players.BLACK), new Pawn(Players.BLACK), new Pawn(Players.BLACK), new Pawn(Players.BLACK), new Pawn(Players.BLACK)},
@@ -119,11 +122,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	}
 
 	Game(){
-		addMouseListener(this);
-		addMouseMotionListener(this);
-
 		try {
-
 			BP = ImageIO.read(new File("/Users/XuMan/Documents/ChessGame/BlackPawn.png"));
 			BN = ImageIO.read(new File("/Users/XuMan/Documents/ChessGame/BlackKnight.png"));
 			BB = ImageIO.read(new File("/Users/XuMan/Documents/ChessGame/BlackBishop.png"));	
@@ -138,66 +137,91 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 			WK = ImageIO.read(new File("/Users/XuMan/Documents/ChessGame/WhiteKing.png"));
 
 			BACK = ImageIO.read(new File("/Users/XuMan/Documents/ChessGame/Back.png"));
-
 		} catch (IOException e) {
 			System.out.println(e.getStackTrace());
 		}
 		
-		response = JOptionPane.showOptionDialog(null, 
-				"Who would you like to play?", 
-						"Welcome", 
-						JOptionPane.OK_CANCEL_OPTION, 
-						JOptionPane.INFORMATION_MESSAGE, 
-						new ImageIcon(BN), 
-						new String[]{"960", "Regular"}, // this is the array
-				"default");
 		
-		final int REGULAR = 1;
-		final int NINESIXTEE = 0;
-		
-		if(response != REGULAR && response != NINESIXTEE){
-			System.exit(0);
-		}else if(response == NINESIXTEE){
-			
-			rand = new Random(getSeedValue());
-			
-			for(int i = 0; i < 8; i++){
-				ChessBoard[0][i] = null;
-			}
-			
-			ChessBoard[0][rand.nextInt(4) * 2] = new Bishop(Players.BLACK);
-			ChessBoard[0][rand.nextInt(4) * 2 + 1] = new Bishop(Players.BLACK);
-			ChessBoard[0][getNthEmptySpot(ChessBoard, 6)] = new Queen(Players.BLACK);
-			ChessBoard[0][getNthEmptySpot(ChessBoard, 5)] = new Knight(Players.BLACK);
-			ChessBoard[0][getNthEmptySpot(ChessBoard, 4)] = new Knight(Players.BLACK);
-			ChessBoard[0][getNthEmptySpot(ChessBoard, 1)] = new Rook(Players.BLACK);
-			int kingSpot = getNthEmptySpot(ChessBoard, 1);
-			ChessBoard[0][kingSpot] = new King(Players.BLACK);
-			ChessBoard[0][getNthEmptySpot(ChessBoard, 1)] = new Rook(Players.BLACK);
-			
-			
-			for(int i = 0; i < 8; i++){
-				Piece whitePiece = (Piece)ChessBoard[0][i].clone();
-				whitePiece.setColor(Players.WHITE);
-				ChessBoard[7][i] = whitePiece;
-			}
-			
-			Pair BKingPos = new Pair(kingSpot, 0);
-			Pair WKingPos = new Pair(kingSpot, 7);
-		}
-		
-		response = JOptionPane.showOptionDialog(null, 
-				"Who would you like to play?", 
-						"Welcome", 
-						JOptionPane.OK_CANCEL_OPTION, 
-						JOptionPane.INFORMATION_MESSAGE, 
-						new ImageIcon(BN), 
-						new String[]{"AI", "A Human"}, // this is the array
-				"default");
+		initWindow();
+		OptionScreen optionScreen = new OptionScreen(600, 700);
+		frame.add(optionScreen);
+		optionScreen.addListener(new OptionListener(){
 
-		if(response != AI && response != HUMAN){
-			System.exit(0);
+			@Override
+			public void selected(int i) {
+	
+				gameType = i;
+			
+				synchronized(optionScreenLock){
+					optionScreenLock.notify();
+				}
+			}
+
+			@Override
+			public void refresh() {
+				// TODO Auto-generated method stub
+			}
+			
+		});
+		optionScreen.add(new String[]{"Regular", "960", "3-Check", "Settings"});
+		frame.repaint();
+		
+		synchronized(optionScreenLock){
+			try {
+				optionScreenLock.wait();
+				
+				final int REGULAR = 0;
+				final int NINESIXTEE = 1;
+				if(gameType == NINESIXTEE){
+					initNineSixTeeBoard();
+				}
+				
+				optionScreen.removeAll();
+				
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
+
+		optionScreen.removeAllListeners();
+		optionScreen.addListener(new OptionListener(){
+
+			@Override
+			public void selected(int i) {
+				response = i;
+				
+				synchronized(optionScreenLock){
+					optionScreenLock.notify();
+				}
+			}
+
+			@Override
+			public void refresh() {
+				// TODO Auto-generated method stub
+			}
+			
+		});
+		optionScreen.add(new String[]{"A Human", "AI"});
+		
+		synchronized(optionScreenLock){
+			try {
+				optionScreenLock.wait();
+				
+				optionScreen.removeAll();
+				
+				frame.remove(optionScreen);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		
+		setSize(600, 700);
+		setVisible(true);
+		frame.add(this);
+		frame.repaint();
 		
 		Piece[][] clone = new Piece[8][8];
 		for(int i = 0; i < 8; i++){
@@ -208,12 +232,10 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		whitePosHistory.add(WKingPos);
 		blackPosHistory.add(BKingPos);
 		
-		initWindow();
-		frame.add(this);
-		
 		ChessUtil.initPossibleMovesArray(possibleMoves);
-
-		frame.repaint();
+		
+		addMouseListener(this);
+		addMouseMotionListener(this);
 	}
 	
 	public int getNthEmptySpot(Piece[][] cBoard, int n){
@@ -233,10 +255,11 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	}
 	
 	public int getSeedValue(){
-		JFrame window = new JFrame();
-		window = new JFrame("Seed");
-		window.setVisible(true);
-		window.setSize(300, 70);
+	
+		Object lock = new Object();
+		JFrame window = new JFrame("Seed");
+		JTextField textField = new JTextField(10);
+		
 		window.setLocationRelativeTo(null); 
 		window.setBackground(Color.WHITE); 
 		window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); 
@@ -248,32 +271,34 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		
 		JLabel label = new JLabel("Seed Number: ");
 		label.setToolTipText("Long Value");
-		JTextField textField = new JTextField(10);
 		
 		textField.addActionListener(new ActionListener(){
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				synchronized(lock){
-					if(!isInt(textField.getText())){
-						textField.setText("Not An Integer");
-						textField.setEnabled(false);
-						timer.schedule(new TimerTask(){
-							@Override
-							public void run() {
-								textField.setEnabled(true);
-								textField.setText("");	
-							}	
-						}, 2000);
-					}else{
+				if(!isInt(textField.getText())){
+					textField.setText("Not An Integer");
+					textField.setEnabled(false);
+					timer.schedule(new TimerTask(){
+						@Override
+						public void run() {
+							textField.setEnabled(true);
+							textField.setText("");	
+						}	
+					}, 2000);
+				}else{
+					synchronized(lock){
 						lock.notify();
 					}
 				}
+				
 			}
 		});
 		
 		panel.add(label);
 		panel.add(textField);
 		window.add(panel);
+		window.pack();
+		window.setVisible(true);
 		
 		try {
 			synchronized(lock){
@@ -316,9 +341,37 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		});
 	}
 
+	public void initNineSixTeeBoard(){
+		rand = new Random(getSeedValue());
+		
+		for(int a = 0; a < 8; a++){
+			ChessBoard[0][a] = null;
+		}
+		
+		ChessBoard[0][rand.nextInt(4) * 2] = new Bishop(Players.BLACK);
+		ChessBoard[0][rand.nextInt(4) * 2 + 1] = new Bishop(Players.BLACK);
+		ChessBoard[0][getNthEmptySpot(ChessBoard, 6)] = new Queen(Players.BLACK);
+		ChessBoard[0][getNthEmptySpot(ChessBoard, 5)] = new Knight(Players.BLACK);
+		ChessBoard[0][getNthEmptySpot(ChessBoard, 4)] = new Knight(Players.BLACK);
+		ChessBoard[0][getNthEmptySpot(ChessBoard, 1)] = new Rook(Players.BLACK);
+		int kingSpot = getNthEmptySpot(ChessBoard, 1);
+		ChessBoard[0][kingSpot] = new King(Players.BLACK);
+		ChessBoard[0][getNthEmptySpot(ChessBoard, 1)] = new Rook(Players.BLACK);
+		
+		
+		for(int a = 0; a < 8; a++){
+			Piece whitePiece = (Piece)ChessBoard[0][a].clone();
+			whitePiece.setColor(Players.WHITE);
+			ChessBoard[7][a] = whitePiece;
+		}
+		
+		BKingPos = new Pair(kingSpot, 0);
+		WKingPos = new Pair(kingSpot, 7);
+	}
+	
 	public Pair getBlock(int x, int y){
-		int x1 = (int)x / WIDTH;
-		int y1 = (int)y / HEIGHT;
+		int x1 = (int)x / BLOCK_WIDTH;
+		int y1 = (int)y / BLOCK_HEIGHT;
 
 		return new Pair(x1, y1);
 	}
@@ -327,8 +380,8 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		int x = p.x;
 		int y = p.y;
 
-		x = (x-1) * WIDTH;
-		y = (y-1) * HEIGHT;
+		x = (x-1) * BLOCK_WIDTH;
+		y = (y-1) * BLOCK_HEIGHT;
 
 		return new Pair(x, y);
 	}
@@ -336,7 +389,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	public int getImagePixelsX(int i){
 		int x = i;
 
-		x = x * WIDTH;
+		x = x * BLOCK_WIDTH;
 
 		return x;
 	}
@@ -344,38 +397,47 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	public int getImagePixelsY(int i){
 		int y = i;
 
-		y = y * HEIGHT;
+		y = y * BLOCK_HEIGHT;
 
 		return y;
 	}
 
-	public boolean isPiece(Pair p){
-		if(ChessBoard[p.y][p.x].equals(new Empty())){
-			return false;
-		}
-
-		return true;
-	}
-	
 	public void handleMouseClick(){
-		if(response == AI){
-			handleAIMove(mx, my);
-		}else if(response == HUMAN){
-			handleHumanMove();
-		}
 		
-		repaint();
+		new Thread(new Runnable(){
+
+			@Override
+			public void run() {
+				if(response == AI){
+					handleAIMove(mx, my);
+				}else if(response == HUMAN){
+					handleHumanMove();
+				}
+				
+				repaint();
+			}
+			
+		}).start();
 	}
 	
 	public void handleMouseRelease(){
-
-		if(response == HUMAN){
-			handleHumanSelected();
-		}else if(response == AI){
-			handleAISelected();
-		}
 		
-		repaint();
+		new Thread(new Runnable(){
+			@Override
+			public void run() {
+				if(isOnBoard(getBlock((int) mx, (int) my))){
+					if(response == HUMAN){
+						handleHumanSelected();
+					}else if(response == AI){
+						handleAISelected();
+					}
+				}
+				
+				dragging = false;
+				repaint();
+			}
+		}).start();
+
 	}
 	
 	public void handleAIMove(int mx, int my){
@@ -386,7 +448,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 			if(!isBack(pair)){ // if hasn't clicked back button
 				if(isPiece(pair) && ChessBoard[pair.y][pair.x].getColor() == Players.WHITE){
 					oldblock = pair;
-					possibleMoves = ChessUtil.getPossibleMoves(oldblock, ChessBoard, WKingPos, BKingPos, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, true);
+					possibleMoves = ChessUtil.getPossibleMoves(oldblock, ChessBoard, WKingPos, BKingPos, numHalfMoves, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, true);
 					selected = SELECTED;
 					dragging = true;
 				}
@@ -407,26 +469,39 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	
 			if(!isBack(newblock)){
 				if(possibleMoves[newblock.y][newblock.x] == MoveStates.CASTLE){
+					selected = NOT_SELECTED;
 					castle(oldblock, newblock);
+					checkPromote(newblock, player, false);
 					switchTurn();
 					saveCurrentBoard();
 					makeAIMove(Players.BLACK);
+					saveCurrentBoard();
 					switchTurn();
-					eraseMoves();
+				}else if(possibleMoves[newblock.y][newblock.x] == MoveStates.PASSANT){
+					selected = NOT_SELECTED;
+					passant(oldblock, newblock);
+					checkPromote(newblock, player, false);
+					switchTurn();
+					saveCurrentBoard();
+					makeAIMove(Players.BLACK);
+					saveCurrentBoard();
+					switchTurn();
 				}else if(ChessBoard[newblock.y][newblock.x].getColor() == player){
 					oldblock = newblock;
 					dragging = true;
-					possibleMoves = ChessUtil.getPossibleMoves(oldblock, ChessBoard, WKingPos, BKingPos, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, true);
+					possibleMoves = ChessUtil.getPossibleMoves(oldblock, ChessBoard, WKingPos, BKingPos, numHalfMoves, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, true);
 				}else if(isValidMove(newblock)){
-					if(!dragging){
-						animate(oldblock, newblock, true);
+					selected = NOT_SELECTED;
+					if(!dragging){	
+						animate(oldblock, newblock);
 					}else{
 						movePiece(oldblock, newblock);
-						switchTurn();
-						saveCurrentBoard();
-						makeAIMove(Players.BLACK);
 					}
-		
+					checkPromote(newblock, player, false);
+					saveCurrentBoard();
+					switchTurn();
+					makeAIMove(Players.BLACK);
+					saveCurrentBoard();
 					switchTurn();
 				}else{
 					selected = NOT_SELECTED;
@@ -462,25 +537,23 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 				do above, but with the opposite color
 								
 		 */
-		
-		if(!animating){
-			if(selected == NOT_SELECTED){
-				Pair pair = getBlock(mx, my);
-	
-				if(!isBack(pair)){ // if hasn't clicked back button
-					if(isPiece(pair) && ChessBoard[pair.y][pair.x].getColor() == player){
-						oldblock = pair;
-						possibleMoves = ChessUtil.getPossibleMoves(oldblock, ChessBoard, WKingPos, BKingPos, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, true);
-						selected = SELECTED;
-						dragging = true;
-					}
-				}else{
-					undo();
+
+		if(selected == NOT_SELECTED){
+			Pair pair = getBlock(mx, my);
+
+			if(!isBack(pair)){ // if hasn't clicked back button
+				if(isPiece(pair) && ChessBoard[pair.y][pair.x].getColor() == player){
+					oldblock = pair;
+					possibleMoves = ChessUtil.getPossibleMoves(oldblock, ChessBoard, WKingPos, BKingPos, numHalfMoves, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, true);
+					selected = SELECTED;
+					dragging = true;
 				}
 			}else{
-				handleHumanSelected();
-			}	
-		}
+				undo();
+			}
+		}else{
+			handleHumanSelected();
+		}	
 	}
 	
 	public void handleHumanSelected(){
@@ -489,25 +562,31 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	
 			if(!isBack(newblock)){
 				if(possibleMoves[newblock.y][newblock.x] == MoveStates.CASTLE){
+					selected = NOT_SELECTED;
 					castle(oldblock, newblock);
+					checkPromote(newblock, player, false);
 					switchTurn();
 					saveCurrentBoard();
-					eraseMoves();
+				}else if(possibleMoves[newblock.y][newblock.x] == MoveStates.PASSANT){
+					selected = NOT_SELECTED;
+					passant(oldblock, newblock);
+					checkPromote(newblock, player, false);
+					switchTurn();
+					saveCurrentBoard();
 				}else if(ChessBoard[newblock.y][newblock.x].getColor() == player){
 					oldblock = newblock;
 					dragging = true;
-					possibleMoves = ChessUtil.getPossibleMoves(oldblock, ChessBoard, WKingPos, BKingPos, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, true);
+					possibleMoves = ChessUtil.getPossibleMoves(oldblock, ChessBoard, WKingPos, BKingPos, numHalfMoves, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, true);
 				}else if(isValidMove(newblock)){
+					selected = NOT_SELECTED;
 					if(!dragging){
-						animate(oldblock, newblock, false);
+						animate(oldblock, newblock);
 					}else{
-						movePiece(oldblock, newblock);
-						saveCurrentBoard();
+						movePiece(oldblock, newblock);					
 					}
-					
+					checkPromote(newblock, player, false);
+					saveCurrentBoard();
 					switchTurn();
-					eraseMoves();
-					
 				}else{
 					selected = NOT_SELECTED;
 					handleHumanMove();
@@ -518,7 +597,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		}
 	}
 	
-	public void animate(Pair oldblock, Pair newblock, boolean shouldAiMove){
+	public void animate(Pair oldblock, Pair newblock){
 		Piece piece = ChessBoard[oldblock.y][oldblock.x];
 		animateX = getImagePixelsX(oldblock.x);
 		animateY = getImagePixelsY(oldblock.y);
@@ -538,35 +617,39 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 
 			@Override
 			public void run() {
-				
 				if(counter < numIterations){
 					animateX += movX / mag * movRate;
 					animateY += movY / mag * movRate;
 					counter++;
 					repaint();
 				}else{
+					
+					synchronized(animateLock){
+						animateLock.notify();
+					}
+					
 					animating = false;
 					ChessBoard[oldblock.y][oldblock.x] = piece;
 					movePiece(oldblock, newblock);
-					saveCurrentBoard();
 					repaint();
-					
-					if(shouldAiMove){
-						switchTurn();
-						makeAIMove(Players.BLACK);
-					}
-					
 					this.cancel();
 				}
 				
 			}
 			
 		}, 0, 10);
+		
+		synchronized(animateLock){
+			try {
+				animateLock.wait();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 	}
 	
 	public void switchTurn(){
-		selected = NOT_SELECTED;
-		pawnQueen(newblock, player);
 		if(player == Players.WHITE){
 			frame.setTitle(BlackText.getText());
 		}else{
@@ -579,14 +662,12 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		//always call before switch turn
 		Piece[][] clone = new Piece[8][8];
 		for(int i = 0; i < 8; i++){
-			clone[i] = ChessBoard[i].clone();
+			for(int j = 0; j < 8; j++)
+				clone[i][j] = (Piece) ChessBoard[i][j].clone();
 		}
 		
-		if(player == Players.WHITE){
-			whitePosHistory.add(WKingPos);
-		}else{
-			blackPosHistory.add(BKingPos);
-		}
+		whitePosHistory.add(WKingPos);
+		blackPosHistory.add(BKingPos);
 		
 		previousMoves.add(clone);
 	}
@@ -604,7 +685,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		Graphics2D g2 = (Graphics2D) g;
 		g2.setColor(Color.MAGENTA);
 		g2.setStroke(new BasicStroke(5));
-		g2.drawRect(getImagePixelsX(p.x), getImagePixelsY(p.y), WIDTH, HEIGHT);
+		g2.drawRect(getImagePixelsX(p.x), getImagePixelsY(p.y), BLOCK_WIDTH, BLOCK_HEIGHT);
 	}
 
 	public void movePiece(Pair oldblock, Pair newblock){
@@ -630,6 +711,8 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 				whiteQueenCastle = false;
 		}
 
+		ChessBoard[oldblock.y][oldblock.x].incrementMoves();
+		ChessBoard[oldblock.y][oldblock.x].setLastMoved(numHalfMoves);
 		ChessBoard[newblock.y][newblock.x] = ChessBoard[oldblock.y][oldblock.x];
 		ChessBoard[oldblock.y][oldblock.x] = new Empty();
 		
@@ -655,7 +738,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 					Graphics2D g2 = (Graphics2D) g;
 					g2.setStroke(new BasicStroke(5));
 					g.setColor(Color.GREEN);
-					g.drawRect(getImagePixelsX(a), getImagePixelsY(b), WIDTH, HEIGHT);
+					g.drawRect(getImagePixelsX(a), getImagePixelsY(b), BLOCK_WIDTH, BLOCK_HEIGHT);
 				}
 			}
 		}
@@ -668,7 +751,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		int moves = 0;
 		int x = 0;
 		int y = 0;
-
+		
 		while(!MoveChosen){
 
 			int randomPiece = r.nextInt(100);
@@ -699,8 +782,8 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 					b = 0;
 				}
 			}
-
-			possibleMoves = ChessUtil.getPossibleMoves(new Pair(x, y), ChessBoard, WKingPos, BKingPos, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, true);
+			
+			possibleMoves = ChessUtil.getPossibleMoves(new Pair(x, y), ChessBoard, WKingPos, BKingPos, numHalfMoves, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, true);
 
 			for(int i = 0; i < 8; i++){
 				for(int j = 0; j < 8; j++){
@@ -723,8 +806,11 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 								newblock = new Pair(c, d);
 								if(possibleMoves[d][c] == MoveStates.CASTLE){
 									castle(oldblock, newblock);
+								}else if(possibleMoves[d][c] == MoveStates.PASSANT){
+									passant(oldblock, newblock);
 								}else{
-									animate(oldblock, newblock, false);
+									animate(oldblock, newblock);
+									checkPromote(newblock, p, true);
 								}
 								eraseMoves();
 								MoveChosen = true;
@@ -738,15 +824,59 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		}
 	}
 
-	public void pawnQueen(Pair block, Players p){
+	public void checkPromote(Pair block, Players p, boolean autoQueen){
 		if(p == Players.WHITE){
 			if(block.y == 0 && ChessBoard[block.y][block.x].getType() == PieceTypes.PAWN){
-				ChessBoard[block.y][block.x] = new Queen(Players.WHITE);
+				if(autoQueen){
+					ChessBoard[block.y][block.x] = new Queen(Players.WHITE);
+				}else{
+					openSelector(Players.WHITE, block);
+				}
+				
+			}
+		}else if(p == Players.BLACK){
+			if(block.y == 7 && ChessBoard[block.y][block.x].getType() == PieceTypes.PAWN){
+				if(autoQueen){
+					ChessBoard[block.y][block.x] = new Queen(Players.BLACK);
+				}else{
+					openSelector(Players.BLACK, block);
+				}
 			}
 		}
-		if(p == Players.BLACK){
-			if(block.y == 7 && ChessBoard[block.y][block.x].getType() == PieceTypes.PAWN){
-				ChessBoard[block.y][block.x] = new Queen(Players.BLACK);
+	}
+	
+	public void openSelector(Players p, Pair block){
+		pSelect = new PieceSelector(115, 263, p);
+		pSelect.addDiceModifierListener(new SelectionListener(){
+	
+			@Override
+			public void selected(Piece p) {
+				
+				ChessBoard[block.y][block.x] = p;
+				removeMouseListener(pSelect);
+				removeMouseMotionListener(pSelect);
+				synchronized(selectorLock){
+					selectorLock.notify();
+				}
+				pSelect = null;
+	
+			}
+
+			@Override
+			public void refresh() {
+				repaint();
+			}
+			
+		});
+		addMouseListener(pSelect);
+		addMouseMotionListener(pSelect);
+		
+		synchronized(selectorLock){
+			try {
+				selectorLock.wait();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 	}
@@ -758,7 +888,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 			}
 		}
 	}
-
+	
 	public void castle(Pair oldblock, Pair newblock){
 		
 		Players p = ChessBoard[oldblock.y][oldblock.x].getColor();
@@ -769,12 +899,61 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		if(newblock.x > oldblock.x){
 			ChessBoard[newblock.y][6] = new King(p);// places king in correct spot
 			ChessBoard[newblock.y][5] = new Rook(p);
+			
+			ChessBoard[newblock.y][6].incrementMoves();
+			ChessBoard[newblock.y][6].setLastMoved(numHalfMoves);
+			ChessBoard[newblock.y][5].incrementMoves();
+			ChessBoard[newblock.y][5].setLastMoved(numHalfMoves);
+			
+			if(p == Players.WHITE){
+				WKingPos = new Pair(6, newblock.y);
+				whiteKingCastle = false;
+				whiteQueenCastle = false;
+			}else{
+				BKingPos = new Pair(6, newblock.y);
+				blackKingCastle = false;
+				blackQueenCastle = false;
+			}
 		}else{
 			ChessBoard[newblock.y][2] = new King(p);
 			ChessBoard[newblock.y][3] = new Rook(p);
+			
+			ChessBoard[newblock.y][2].incrementMoves();
+			ChessBoard[newblock.y][2].setLastMoved(numHalfMoves);
+			ChessBoard[newblock.y][3].incrementMoves();
+			ChessBoard[newblock.y][3].setLastMoved(numHalfMoves);
+			
+			if(p == Players.WHITE){
+				WKingPos = new Pair(2, newblock.y);
+				whiteKingCastle = false;
+				whiteQueenCastle = false;
+			}else{
+				BKingPos = new Pair(2, newblock.y);
+				blackKingCastle = false;
+				blackQueenCastle = false;
+			}
 		}
+		
+		numHalfMoves++;
 	}
-
+	
+	public void passant(Pair oldblock, Pair newblock){
+		Players p = ChessBoard[oldblock.y][oldblock.x].getColor();
+		
+		if(p == Players.WHITE){
+			ChessBoard[newblock.y + 1][newblock.x] = new Empty();
+		}if(p == Players.BLACK){
+			ChessBoard[newblock.y - 1][newblock.x] = new Empty();
+		}
+		
+		ChessBoard[oldblock.y][oldblock.x].incrementMoves();
+		ChessBoard[oldblock.y][oldblock.x].setLastMoved(numHalfMoves);
+		ChessBoard[newblock.y][newblock.x] = ChessBoard[oldblock.y][oldblock.x];
+		ChessBoard[oldblock.y][oldblock.x] = new Empty();
+		
+		numHalfMoves++;
+	}
+	
 	public void undo(){
 		
 		if(previousMoves.size() > 1){
@@ -819,24 +998,40 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 
 		return false;
 	}
+	
+	public boolean isPiece(Pair p){
+		if(ChessBoard[p.y][p.x].equals(new Empty())){
+			return false;
+		}
+
+		return true;
+	}
+	
+	public boolean isOnBoard(Pair block){
+		if(block.x >= 0 && block.x <= 7 && block.y >= 0 && block.y <= 7){
+			return true;
+		}
+		
+		return false;
+	}
 
 	@Override
 	public void paintComponent(Graphics g){ 
 
-		g.setColor(new Color(0, 160, 0));
+		g.setColor(new Color(255, 222, 173));
 		g.fillRect(0, 0, 600, 600); 
-		g.setColor(new Color( 255, 255, 224));
+		g.setColor(new Color(160, 82, 45));
 		for(int i = 0; i <= 600; i+=150){ 
 			for(int j = 0; j <= 450; j+=150){ 
-				g.fillRect(i, j, WIDTH, HEIGHT); 
+				g.fillRect(i, j, BLOCK_WIDTH, BLOCK_HEIGHT); 
 			} 
 		} for(int i = 75; i <= 525; i+=150){ 
 			for(int j = 75; j <= 525; j+=150){ 
-				g.fillRect(i, j, WIDTH, HEIGHT); 
+				g.fillRect(i, j, BLOCK_WIDTH, BLOCK_HEIGHT); 
 			} 
 		}
 
-		g.drawImage(BACK, getImagePixelsX(3) + WIDTH/2, getImagePixelsY(8), null);
+		g.drawImage(BACK, getImagePixelsX(3) + BLOCK_WIDTH/2, getImagePixelsY(8), null);
 
 		for(int a = 0; a <= 7; a++){
 			for(int b = 0; b <= 7; b++){
@@ -852,6 +1047,10 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 				BufferedImage img = getImage(oldblock.y, oldblock.x);
 				g.drawImage(img, mx - img.getWidth()/2, my - img.getHeight()/2, null);
 			}
+		}
+		
+		if(pSelect != null){
+			pSelect.draw(g);
 		}
 		
 		if(animating){
@@ -907,15 +1106,16 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	public void mousePressed(MouseEvent e) {
 		mx = e.getX();
 		my = e.getY();
-		handleMouseClick();
+		if(pSelect == null && !animating)
+			handleMouseClick();
 	}
 
 	@Override
 	public void mouseReleased(MouseEvent e) {
 		mx = e.getX();
 		my = e.getY();
-		handleMouseRelease();
-		dragging = false;
+		if(!animating)
+			handleMouseRelease();
 	}
 
 	@Override

@@ -8,6 +8,8 @@ import chess_game.Players;
 public abstract class Piece implements Cloneable{
 	private Players color;
 	private PieceTypes type;
+	private int numMoves = 0;
+	private int lastMoved = 0;
 	
 	public Piece(Players color, PieceTypes type){
 		this.color = color;
@@ -22,8 +24,24 @@ public abstract class Piece implements Cloneable{
 		return type;
 	}
 	
+	public int getMoveCount(){
+		return numMoves;	
+	}
+	
+	public int getLastMoveTurn(){
+		return lastMoved;
+	}
+	
 	public void setColor(Players p){
 		this.color = p;
+	}
+	
+	public void setLastMoved(int halfMove){
+		lastMoved = halfMove;
+	}
+	
+	public void incrementMoves(){
+		numMoves++;
 	}
 	
 	@Override 
@@ -38,7 +56,7 @@ public abstract class Piece implements Cloneable{
 		return false;
 	}
 	
-	public abstract MoveStates[][] getPossibleMoves(Pair pair, Piece[][] ChessBoard,  Pair WKingPos, Pair BKingPos,
+	public abstract MoveStates[][] getPossibleMoves(Pair pair, Piece[][] ChessBoard,  Pair WKingPos, Pair BKingPos, int numHalfMoves,
 			boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, boolean checkForResultingCheck);
 
 	@Override

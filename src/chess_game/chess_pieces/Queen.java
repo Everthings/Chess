@@ -14,7 +14,7 @@ public class Queen extends Piece{
 
 	@Override
 	public MoveStates[][] getPossibleMoves(Pair pair, Piece[][] ChessBoard,
-			Pair WKingPos, Pair BKingPos, boolean whiteKingCastle,
+			Pair WKingPos, Pair BKingPos, int numHalfMoves, boolean whiteKingCastle,
 			boolean whiteQueenCastle, boolean blackKingCastle,
 			boolean blackQueenCastle, boolean checkForResultingCheck) {
 		
@@ -23,8 +23,8 @@ public class Queen extends Piece{
 		MoveStates[][] possibleMoves = new MoveStates[ChessBoard.length][ChessBoard[0].length];
 		ChessUtil.initPossibleMovesArray(possibleMoves);
 		
-		possibleMoves = new Rook(getColor()).getPossibleMoves(pair, ChessBoard, WKingPos, BKingPos, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, checkForResultingCheck);
-		possibleMoves = ChessUtil.addMoveStatesArray(possibleMoves, new Bishop(getColor()).getPossibleMoves(pair, ChessBoard, WKingPos, BKingPos, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, checkForResultingCheck));
+		possibleMoves = new Rook(getColor()).getPossibleMoves(pair, ChessBoard, WKingPos, BKingPos, numHalfMoves, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, checkForResultingCheck);
+		possibleMoves = ChessUtil.addMoveStatesArray(possibleMoves, new Bishop(getColor()).getPossibleMoves(pair, ChessBoard, WKingPos, BKingPos, numHalfMoves, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, checkForResultingCheck));
 		
 		return possibleMoves;
 	}
