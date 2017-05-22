@@ -21,7 +21,7 @@ import chess_game.chess_pieces.Queen;
 import chess_game.chess_pieces.Rook;
 import chess_game.listeners.SelectionListener;
 
-public class PieceSelector implements MouseMotionListener, MouseListener{
+public class PieceSelector implements MouseMotionListener, MouseListener, Drawable{
 	
 	private ArrayList<SelectionListener> listenerList = new ArrayList<SelectionListener>();
 	
@@ -162,6 +162,7 @@ public class PieceSelector implements MouseMotionListener, MouseListener{
 	    }
 	}
 	
+	@Override
 	public void draw(Graphics g){
 			
 		g.setColor(Color.WHITE);

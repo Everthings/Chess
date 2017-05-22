@@ -135,7 +135,7 @@ public class OptionScreen extends JPanel{
 		}
 	}
 
-	public void removeAll(){
+	public void removeAllButtons(){
 		
 		Object lock = new Object();
 		
@@ -192,8 +192,12 @@ public class OptionScreen extends JPanel{
 	public void paintComponent(Graphics g){
 		super.paintComponent(g);
 		
-		for(OptionButton ob: buttons){
-			ob.draw(g);
+		try{
+			for(OptionButton ob: buttons){
+				ob.draw(g);
+			}
+		}catch(Exception e){
+			
 		}
 	}
 }

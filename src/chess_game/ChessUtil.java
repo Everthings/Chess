@@ -1,9 +1,24 @@
 package chess_game;
 
 import chess_game.chess_pieces.Empty;
+import chess_game.chess_pieces.King;
 import chess_game.chess_pieces.Piece;
 
 public class ChessUtil {
+	
+	public static int getNumberOfPieces(Piece[][] ChessBoard){
+		int num = 0;
+		
+		for(int a  = 0; a < 8; a++){
+			for(int b = 0; b < 8; b++){
+				if(!ChessBoard[a][b].equals(new Empty())){
+					num++;
+				}
+			}
+		}
+		
+		return num;
+	}
 	
 	public static MoveStates[][] getPossibleMoves(Pair pair, Piece[][] ChessBoard,  Pair WKingPos, Pair BKingPos, int numHalfMoves,
 			boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, boolean checkForResultingCheck){
@@ -15,6 +30,42 @@ public class ChessUtil {
 			possibleMoves = piece.getPossibleMoves(pair, ChessBoard, WKingPos, BKingPos, numHalfMoves, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, checkForResultingCheck);
 		
 		return possibleMoves;
+	}
+	
+	public static boolean arePossibleMoves(Players p, Piece[][] ChessBoard,  Pair WKingPos, Pair BKingPos, int numHalfMoves,
+			boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, boolean checkForResultingCheck){
+		
+		for(int a = 0; a < ChessBoard.length; a++){
+			for(int b = 0; b < ChessBoard[a].length; b++){
+				Piece piece = ChessBoard[b][a];
+				
+				if(piece.getColor() == p){
+					MoveStates[][] possibleMoves = piece.getPossibleMoves(new Pair(a, b), ChessBoard, WKingPos, BKingPos, numHalfMoves, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, checkForResultingCheck);
+					
+					for(int i = 0; i < possibleMoves.length; i++){
+						for(int j = 0; j < possibleMoves[i].length; j++){
+							if(possibleMoves[j][i] == MoveStates.OPEN){
+								return true;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return false;
+	}
+	
+	public static Pair getKingPosition(Players p, Piece[][] ChessBoard){
+		for(int a = 0; a < ChessBoard.length; a++){
+			for(int b = 0; b < ChessBoard[a].length; b++){
+				if(ChessBoard[b][a].equals(new King(p))){
+					return new Pair(a, b);
+				}
+			}
+		}
+		
+		return null;
 	}
 	
 	public static void initPossibleMovesArray(MoveStates[][] possibleMoves){
@@ -38,11 +89,24 @@ public class ChessUtil {
 		return possibleMoves;
 	}
 
-	/*
-	public static boolean isMate(Players p, Piece[][] ChessBoard, Pair WKingPos, Pair BKingPos){
+	
+	public static Results isMateOrDraw(Players p, Piece[][] ChessBoard, Pair WKingPos, Pair BKingPos, int numHalfMoves,
+			boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle){
 		
+		if(!arePossibleMoves(p, ChessBoard, WKingPos, BKingPos, numHalfMoves, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, true)){
+			if(isCheck(p, ChessBoard, WKingPos, BKingPos)){
+				return Results.WIN;
+			}else{
+				return Results.DRAW;
+			}
+		}
+		
+		if(getNumberOfPieces(ChessBoard) <= 2){
+			return Results.DRAW;
+		}
+		
+		return Results.NONE;
 	}
-	*/
 	
 	public static boolean isCheck(Players p, Piece[][] ChessBoard, Pair WKingPos, Pair BKingPos){
 		
