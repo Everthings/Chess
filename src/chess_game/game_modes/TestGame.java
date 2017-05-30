@@ -26,15 +26,28 @@ public class TestGame extends AbstractGame{
 
 	@Override
 	public Piece[][] initChessBoard() {
-		Piece[][] newChessBoard = {{new King(Players.BLACK), new Empty(), new Empty(), new Empty(), new Empty(), new Rook(Players.BLACK), new Empty(), new Queen(Players.BLACK)},
+		
+		Piece[][] newChessBoard = {{new Empty(), new Empty(), new Empty(), new Knight(Players.BLACK), new Empty(), new Rook(Players.BLACK), new Empty(), new Empty()},
+				{new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()},
+				{new Empty(), new Empty(), new Empty(), new King(Players.BLACK), new Empty(), new Empty(), new Empty(), new Empty()},
+				{new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()},
+				{new Empty(), new Empty(), new Queen(Players.WHITE), new King(Players.WHITE), new Empty(), new Empty(), new Empty(), new Empty()},
+				{new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()},
+				{new Empty(), new Pawn(Players.WHITE), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()},
+				{new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()}};
+		
+		
+		/*
+		Piece[][] newChessBoard = {{new King(Players.BLACK), new Queen(Players.BLACK), new Empty(), new Queen(Players.WHITE), new Empty(), new Empty(), new Empty(), new Empty()},
+				{new Pawn(Players.BLACK), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Bishop(Players.WHITE)},
 				{new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()},
 				{new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()},
 				{new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()},
 				{new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()},
-				{new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()},
-				{new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()},
-				{new Knight(Players.WHITE), new Empty(), new Empty(), new Rook(Players.WHITE), new King(Players.WHITE), new Empty(), new Empty(), new Empty()}};
-	
+				{new Pawn(Players.WHITE), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty()},
+				{new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new Empty(), new King(Players.WHITE), new Empty()}};
+		*/
+		
 		return newChessBoard;
 	}
 

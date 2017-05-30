@@ -15,7 +15,7 @@ public abstract class AbstractGame {
 	Pair WKingPos;
 	Pair BKingPos;
 	
-	private Piece[][] ChessBoard;
+	private volatile Piece[][] ChessBoard;
 	private int numWhiteChecks = 0;//number of checks white has made on opponent
 	private int numBlackChecks = 0;//and vice versa
 	private int numHalfMoves = 0;
@@ -40,8 +40,12 @@ public abstract class AbstractGame {
 		numHalfMoves--;
 	}
 	
-	public Piece[][] getChessBoard(){
-		return ChessBoard;
+	public synchronized Piece[][] getChessBoard(){
+		Piece[][] newChessBoard = ChessBoard.clone();
+		for(int i = 0; i < ChessBoard.length; i++)
+			newChessBoard[i] = ChessBoard[i].clone();
+
+		return newChessBoard;
 	}
 	
 	public int getHalfMoves(){
@@ -90,6 +94,30 @@ public abstract class AbstractGame {
 		BKingPos = newPos;
 	}
 	
+	public boolean getKingCastle(Players p){
+		if(p == Players.WHITE){
+			return whiteKingCastle;
+		}else{
+			return blackKingCastle;
+		}
+	}
+	
+	public boolean getQueenCastle(Players p){
+		if(p == Players.WHITE){
+			return whiteQueenCastle;
+		}else{
+			return blackQueenCastle;
+		}
+	}
+	
+	public synchronized void setChessBoard(Piece[][] ChessBoard){
+		Piece[][] newChessBoard = ChessBoard.clone();
+		for(int i = 0; i < ChessBoard.length; i++)
+			newChessBoard[i] = ChessBoard[i].clone();
+		
+		this.ChessBoard = newChessBoard;
+	}
+	
 	public boolean whiteKingCastle(){
 		return whiteKingCastle;
 	}
@@ -117,7 +145,7 @@ public abstract class AbstractGame {
 			castle(oldblock, newblock);
 		}else if(type == MoveStates.PASSANT){
 			passant(oldblock, newblock);
-		}else if(type == MoveStates.OPEN){
+		}else if(type == MoveStates.OPEN || type == MoveStates.TAKE){
 			if(ChessBoard[oldblock.y][oldblock.x].equals(new King(Players.BLACK))){
 				BKingPos = newblock;
 				blackKingCastle = false;
@@ -138,11 +166,15 @@ public abstract class AbstractGame {
 					whiteQueenCastle = false;
 			}
 	
-			ChessBoard[oldblock.y][oldblock.x].incrementMoves();
-			ChessBoard[oldblock.y][oldblock.x].setLastMoved(numHalfMoves);
-			ChessBoard[newblock.y][newblock.x] = ChessBoard[oldblock.y][oldblock.x];
-			ChessBoard[oldblock.y][oldblock.x] = new Empty();
+			Piece[][] newChessBoard = getChessBoard();
 			
+			newChessBoard[oldblock.y][oldblock.x].incrementMoves();
+			newChessBoard[oldblock.y][oldblock.x].setLastMoved(numHalfMoves);
+			newChessBoard[newblock.y][newblock.x] = newChessBoard[oldblock.y][oldblock.x];
+			newChessBoard[oldblock.y][oldblock.x] = new Empty();
+			
+			setChessBoard(newChessBoard);
+
 			numHalfMoves++;
 		}
 	}
@@ -150,16 +182,20 @@ public abstract class AbstractGame {
 	public void passant(Pair oldblock, Pair newblock){
 		Players p = ChessBoard[oldblock.y][oldblock.x].getColor();
 		
+		Piece[][] newChessBoard = getChessBoard();
+		
 		if(p == Players.WHITE){
-			ChessBoard[newblock.y + 1][newblock.x] = new Empty();
+			newChessBoard[newblock.y + 1][newblock.x] = new Empty();
 		}if(p == Players.BLACK){
-			ChessBoard[newblock.y - 1][newblock.x] = new Empty();
+			newChessBoard[newblock.y - 1][newblock.x] = new Empty();
 		}
 		
-		ChessBoard[oldblock.y][oldblock.x].incrementMoves();
-		ChessBoard[oldblock.y][oldblock.x].setLastMoved(numHalfMoves);
-		ChessBoard[newblock.y][newblock.x] = ChessBoard[oldblock.y][oldblock.x];
-		ChessBoard[oldblock.y][oldblock.x] = new Empty();
+		newChessBoard[oldblock.y][oldblock.x].incrementMoves();
+		newChessBoard[oldblock.y][oldblock.x].setLastMoved(numHalfMoves);
+		newChessBoard[newblock.y][newblock.x] = newChessBoard[oldblock.y][oldblock.x];
+		newChessBoard[oldblock.y][oldblock.x] = new Empty();
+		
+		setChessBoard(newChessBoard);
 		
 		numHalfMoves++;
 	}
@@ -168,17 +204,19 @@ public abstract class AbstractGame {
 		
 		Players p = ChessBoard[oldblock.y][oldblock.x].getColor();
 		
-		ChessBoard[oldblock.y][oldblock.x] = new Empty();
-		ChessBoard[newblock.y][newblock.x] = new Empty();
+		Piece[][] newChessBoard = getChessBoard();
+		
+		newChessBoard[oldblock.y][oldblock.x] = new Empty();
+		newChessBoard[newblock.y][newblock.x] = new Empty();
 		
 		if(newblock.x > oldblock.x){
-			ChessBoard[newblock.y][6] = new King(p);// places king in correct spot
-			ChessBoard[newblock.y][5] = new Rook(p);
+			newChessBoard[newblock.y][6] = new King(p);// places king in correct spot
+			newChessBoard[newblock.y][5] = new Rook(p);
 			
-			ChessBoard[newblock.y][6].incrementMoves();
-			ChessBoard[newblock.y][6].setLastMoved(numHalfMoves);
-			ChessBoard[newblock.y][5].incrementMoves();
-			ChessBoard[newblock.y][5].setLastMoved(numHalfMoves);
+			newChessBoard[newblock.y][6].incrementMoves();
+			newChessBoard[newblock.y][6].setLastMoved(numHalfMoves);
+			newChessBoard[newblock.y][5].incrementMoves();
+			newChessBoard[newblock.y][5].setLastMoved(numHalfMoves);
 			
 			if(p == Players.WHITE){
 				WKingPos = new Pair(6, newblock.y);
@@ -190,13 +228,13 @@ public abstract class AbstractGame {
 				blackQueenCastle = false;
 			}
 		}else{
-			ChessBoard[newblock.y][2] = new King(p);
-			ChessBoard[newblock.y][3] = new Rook(p);
+			newChessBoard[newblock.y][2] = new King(p);
+			newChessBoard[newblock.y][3] = new Rook(p);
 			
-			ChessBoard[newblock.y][2].incrementMoves();
-			ChessBoard[newblock.y][2].setLastMoved(numHalfMoves);
-			ChessBoard[newblock.y][3].incrementMoves();
-			ChessBoard[newblock.y][3].setLastMoved(numHalfMoves);
+			newChessBoard[newblock.y][2].incrementMoves();
+			newChessBoard[newblock.y][2].setLastMoved(numHalfMoves);
+			newChessBoard[newblock.y][3].incrementMoves();
+			newChessBoard[newblock.y][3].setLastMoved(numHalfMoves);
 			
 			if(p == Players.WHITE){
 				WKingPos = new Pair(2, newblock.y);
@@ -208,6 +246,8 @@ public abstract class AbstractGame {
 				blackQueenCastle = false;
 			}
 		}
+		
+		setChessBoard(newChessBoard);
 		
 		numHalfMoves++;
 	}

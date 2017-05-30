@@ -1,25 +1,13 @@
 package chess_game;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
-import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.ProtocolException;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.ArrayList;
 import java.util.Scanner;
 
-import javax.net.ssl.HttpsURLConnection;
-import javax.xml.namespace.QName;
 import javax.xml.soap.*;
-import javax.xml.transform.*;
-import javax.xml.transform.stream.*;
 
 import chess_game.chess_pieces.Bishop;
 import chess_game.chess_pieces.Empty;
@@ -59,11 +47,13 @@ public class SOAPClient {
 	/*
 	public static void main(String[] args){
 		//for testing
-		new SOAPClient().test();
+		Pair[] locs = new SOAPClient().decodeLocationsFromStartString("2291");
+		System.out.println("old: " + locs[0].x + " " + locs[0].y);
+		System.out.println("new: " + locs[1].x + " " + locs[1].y);
 	}
 	*/
 	
-	public PieceTypes getPieceTypeFromString(String move){
+	public PieceTypes decodeTypeFromEndString(String move){
 		String type = move.substring(0, 1);
 
 		if(!type.toUpperCase().equals(type)){
@@ -85,16 +75,14 @@ public class SOAPClient {
 		return PieceTypes.NULL;
 	}
 	
-	public Pair getPieceEndingLocationFromString(String move){
-		String strLocation;
+	public Pair decodeEndingLocationFromString(String move){
+		String strLocation = null;
 		
-		if(move.toLowerCase().equals(move)){
-			strLocation = move.substring(0, 2);
-		}else{
-			if(move.charAt(1) == 'x')
-				strLocation = move.substring(2, 4);
-			else
-				strLocation = move.substring(1, 3);
+		for(int i = 1; i < move.length(); i++){
+			if(isInt(move.substring(i, i + 1))){
+				strLocation = move.substring(i - 1, i + 1);
+				break;
+			}
 		}
 		
 		Pair endLoc = new Pair(strLocation.charAt(0) - 'a', 7 - (Integer.parseInt(strLocation.substring(1)) - 1));
@@ -102,13 +90,23 @@ public class SOAPClient {
 		return endLoc;
 	}
 	
-	public Pair getPieceStartingLocationFromString(String move, Players p, Piece[][] ChessBoard, Pair WKingPos, Pair BKingPos, 
+	public boolean isInt(String str){
+		try{
+			Integer.parseInt(str);
+		}catch(NumberFormatException e){
+			return false;
+		}
+		
+		return true;
+	}
+	
+ 	public Pair decodeOpeningLocationFromString(String move, Players p, Piece[][] ChessBoard, Pair WKingPos, Pair BKingPos, 
 			boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, 
 			int numHalfMoves){
 		
-		Pair endLoc = getPieceEndingLocationFromString(move);
+		Pair endLoc = decodeEndingLocationFromString(move);
 		
-		PieceTypes type = getPieceTypeFromString(move);
+		PieceTypes type = decodeTypeFromEndString(move);
 		
 		for(int a = 0; a < 8; a++){
 			for(int b = 0; b < 8; b++){
@@ -124,14 +122,47 @@ public class SOAPClient {
 		return null;
 	}
 	
-	public String getMove(Piece[][] ChessBoard, Players p, boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, 
+	public Pair[] decodeLocationsFromMidString(String move){
+		
+		int moveInt = Integer.parseInt(move);
+		
+		int from = moveInt & 63;
+	    int fromrank = from >> 3;
+	    int fromfile = from & 7;
+	    int to = (moveInt >> 6) & 63;
+	    int torank = to >> 3;
+	    int tofile = to & 7;
+		
+		Pair[] locations = new Pair[2];
+		
+		locations[0] = new Pair(fromfile, 7 - fromrank);
+		locations[1] = new Pair(tofile, 7 - torank);
+
+		return locations;
+	}
+	
+	public Pair[] decodeLocationsFromOpeningString(String move){
+		
+		String strLocation;
+		Pair[] locations = new Pair[2];
+		
+		strLocation = move.substring(0, 2);
+		locations[0] = new Pair(strLocation.charAt(0) - 'a', 7 - (Integer.parseInt(strLocation.substring(1)) - 1));
+
+		strLocation = move.substring(2, 4);
+		locations[1] = new Pair(strLocation.charAt(0) - 'a', 7 - (Integer.parseInt(strLocation.substring(1)) - 1));
+	
+		return locations;
+	}
+	
+	public String getEndMove(Piece[][] ChessBoard, Players p, boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, 
 			Pair enPassant, int numHalfMoves){
 		
 		try {
 			final String USER_AGENT = "Mozilla/5.0";
 	
 	        String url = "http://tb7.chessok.com/probe/branch";
-	
+	       
 	        URL obj = new URL(url);
 	
 	        HttpURLConnection con = (HttpURLConnection) obj.openConnection();
@@ -139,7 +170,8 @@ public class SOAPClient {
 	        //add reuqest header
 	
 	        con.setRequestMethod("POST");
-	
+	        //con.setRequestMethod("GET");
+	       
 	        con.setRequestProperty("User-Agent", USER_AGENT);
 	
 	        con.setRequestProperty("Accept-Language", "en-US,en;q=0.5");
@@ -147,6 +179,7 @@ public class SOAPClient {
 	        String FEN = convertToFEDString(ChessBoard, p, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, 
 		    		 enPassant, numHalfMoves);
 	        String urlParameters = "fen=" + FEN;
+	   
 	        System.out.println(FEN);
 	
 	        // Send post request
@@ -169,9 +202,7 @@ public class SOAPClient {
 	
 	        //System.out.println("Response Code : " + responseCode);
 	
-	        BufferedReader in = new BufferedReader(
-	
-	                new InputStreamReader(con.getInputStream()));
+	        BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
 	
 	        String inputLine;
 	
@@ -190,7 +221,7 @@ public class SOAPClient {
 	    	
 	        
 	    	Scanner sc = new Scanner(response.toString());
-
+	    	
 	    	String text = sc.next();
 	    	while(text.indexOf("1.") == -1){
 	    		text = sc.next();
@@ -212,135 +243,188 @@ public class SOAPClient {
 		return null;
 	}
 
-	public void test(){
-		try {
-			/*
-			String urlParameters  = "fen=8%2F3QK3%2F6q1%2F8%2F2R5%2F6k1%2F8%2F8%20w%20-%20-%200%201";
-			byte[] postData       = urlParameters.getBytes(StandardCharsets.UTF_8);
-			int    postDataLength = postData.length;
-			String request        = "http://chessok.com/onlineserv/endbase/connection.php?timestamp=1495379048835";
-			URL    url            = new URL(request);
-			HttpURLConnection conn = (HttpURLConnection) url.openConnection();           
-			conn.setDoOutput( true );
-			conn.setInstanceFollowRedirects( false );
-			conn.setRequestMethod( "POST" );
-			conn.setRequestProperty( "Content-Type", "application/x-www-form-urlencoded"); 
-			conn.setRequestProperty( "charset", "utf-8");
-			conn.setRequestProperty( "Content-Length", Integer.toString(postDataLength));
-			conn.setUseCaches( false );
-			try(DataOutputStream wr = new DataOutputStream(conn.getOutputStream())) {
-			   wr.write(postData);
-			}
-			System.out.println(postData);
-			*/
-			
-			final String USER_AGENT = "Mozilla/5.0";
-
-	           String url = "http://chessok.com/onlineserv/endbase/connection.php";
-
-               URL obj = new URL(url);
-
-               HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-
-               //add reuqest header
-
-               con.setRequestMethod("POST");
-
-               con.setRequestProperty("User-Agent", USER_AGENT);
-
-               con.setRequestProperty("Accept-Language", "en-US,en;q=0.5");
-
-
-
-               String urlParameters = "fen=8%2F3QK3%2F6q1%2F8%2F2R5%2F6k1%2F8%2F8%20w%20-%20-%200%201";
-
-
-
-               // Send post request
-
-               con.setDoOutput(true);
-
-               DataOutputStream wr = new DataOutputStream(con.getOutputStream());
-
-               wr.writeBytes(urlParameters);
-
-               wr.flush();
-
-               wr.close();
-
-
-
-               int responseCode = con.getResponseCode();
-
-               System.out.println("\nSending 'POST' request to URL : " + url);
-
-               System.out.println("Post parameters : " + urlParameters);
-
-               System.out.println("Response Code : " + responseCode);
-
-
-
-               BufferedReader in = new BufferedReader(
-
-                       new InputStreamReader(con.getInputStream()));
-
-               String inputLine;
-
-               StringBuffer response = new StringBuffer();
-
-
-
-               while ((inputLine = in.readLine()) != null) {
-
-                       response.append(inputLine);
-
-               }
-
-               in.close();
-
-
-
-               //print result
-
-               System.out.println(response.toString());
-
-
-
-
-            
-	} catch (Exception e1) {
-		e1.printStackTrace();
-	}
+	public String getOppeningMove(Piece[][] ChessBoard, Players p, boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, 
+			Pair enPassant, int numHalfMoves){
 		
-		/*
 		try {
-			//creating the message
-			message = messageFactory.createMessage();
-			SOAPBody body = message.getSOAPBody();
-			QName bodyName = new QName("http://www.lokasoft.nl/tbweb/tbapi", "TB2ComObj.ProbePositions", "wsdlns");
-			SOAPBodyElement test = body.addBodyElement(bodyName);
-			
-			QName movesName = new QName("fen");
-			SOAPElement moves = test.addChildElement(movesName);
-			moves.addTextNode(convertToFEDString(ChessBoard, Players.WHITE, true, true, true, true, null, 0, 1));
-			message.saveChanges();
-			
-			//sending/receiving the message
-			connection = connectionFactory.createConnection();
-			SOAPMessage response = connection.call(message, new URL("http://www.lokasoft.nl/tbweb/tbapi.wsdl"));
-			connection.close();
-			
-			//decoding the content of the message
-			SOAPBody retBody = response.getSOAPBody();
-			Iterator iter = retBody.getChildElements(bodyName);
-			SOAPBodyElement retElement = (SOAPBodyElement) iter.next();
-			System.out.println(retElement.getValue());
-			
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
+			final String USER_AGENT = "Mozilla/5.0";
+	
+	        String url = "http://chessok.com/onlineserv/opening/connection.php";
+	       
+	        URL obj = new URL(url);
+	
+	        HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+	
+	        //add reuqest header
+	
+	        con.setRequestMethod("POST");
+	        //con.setRequestMethod("GET");
+	       
+	        con.setRequestProperty("User-Agent", USER_AGENT);
+	
+	        con.setRequestProperty("Accept-Language", "en-US,en;q=0.5");
+
+	        String FEN = convertToFEDString(ChessBoard, p, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, 
+		    		 enPassant, numHalfMoves);
+	        
+	        String urlParameters = "fen=" + FEN;
+	     
+	        // Send post request
+	
+	        con.setDoOutput(true);
+	
+	        DataOutputStream wr = new DataOutputStream(con.getOutputStream());
+	
+	        wr.writeBytes(urlParameters);
+	
+	        wr.flush();
+	
+	        wr.close();
+	
+	        int responseCode = con.getResponseCode();
+	
+	        //System.out.println("\nSending 'POST' request to URL : " + url);
+	
+	        //System.out.println("Post parameters : " + urlParameters);
+	
+	        //System.out.println("Response Code : " + responseCode);
+	
+	        BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+	
+	        String inputLine;
+	
+	        StringBuffer response = new StringBuffer();
+
+	        while ((inputLine = in.readLine()) != null) {
+	
+	                response.append(inputLine);
+	
+	        }
+	
+	        in.close();
+	        
+	        String result = response.toString();
+	        ArrayList<String> choices = new ArrayList<String>();
+	        int counter = 0;
+	        int MAX_CHOICES = 1;
+	    	
+	        while(result.indexOf("<WhiteWins>") != -1 && counter < MAX_CHOICES){
+	        	
+		    	Scanner sc = new Scanner(result);
+		    	
+		    	String text = sc.next();
+		    	while(text.indexOf("<WhiteWins>") == -1){
+		    		text = sc.next();
+		    	}
+		    	
+		    	int startIndex = text.indexOf("<WhiteWins>") + 11;
+		    	int endIndex = text.indexOf("</WhiteWins>");
+
+		    	if(Integer.parseInt(text.substring(startIndex, endIndex)) > 500){
+		    	
+			    	sc = new Scanner(result);
+			    	text = sc.next();
+			    	while(text.indexOf("<Move>") == -1){
+			    		text = sc.next();
+			    	}
+			    	
+			    	startIndex = text.indexOf("<Move>") + 6;
+			    	
+			    	counter++;
+			    	result = result.substring(result.indexOf("</WhiteWins>") + 12);
+			    	choices.add(text.substring(startIndex, startIndex + 4));
+		    	}else{
+		    		break;
+		    	}
+	        }
+	        
+	        if(choices.size() > 0){
+	        	return choices.get((int)(Math.random() * choices.size()));
+	        }
+	
+		}catch(Exception e){
 			e.printStackTrace();
 		}
-		*/
+
+		return null;
+	}
+	
+	public String getMidMove(Piece[][] ChessBoard, Players p, boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, 
+			Pair enPassant, int numHalfMoves){
+		
+		try {
+			final String USER_AGENT = "Mozilla/5.0";
+	
+			String FEN = convertToFEDString(ChessBoard, p, whiteKingCastle, whiteQueenCastle, blackKingCastle, blackQueenCastle, 
+			    		 enPassant, numHalfMoves);
+	        String url = "http://play2.shredderchess.com/online/playshredder/fetch.php?obid=eng10.8596537920306933&reqid=" + Math.random() + "&hook=null&action=engine&level=2&fen=" + FEN;
+	        
+	        URL obj = new URL(url);
+	
+	        HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+	
+	        //add reuqest header
+	
+	        //con.setRequestMethod("POST");
+	        con.setRequestMethod("GET");
+	       
+	        con.setRequestProperty("User-Agent", USER_AGENT);
+	
+	        con.setRequestProperty("Accept-Language", "en-US,en;q=0.5");
+
+	      
+	        String urlParameters = "level=hard&fen=" + FEN;
+	        
+	        // Send get request
+	
+	        con.setDoOutput(true);
+	
+	        DataOutputStream wr = new DataOutputStream(con.getOutputStream());
+	
+	        wr.writeBytes(urlParameters);
+	
+	        wr.flush();
+	
+	        wr.close();
+	
+	        int responseCode = con.getResponseCode();
+	
+	        //System.out.println("\nSending 'POST' request to URL : " + url);
+	
+	        //System.out.println("Post parameters : " + urlParameters);
+	
+	        //System.out.println("Response Code : " + responseCode);
+	
+	        BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+	
+	        String inputLine;
+	
+	        StringBuffer response = new StringBuffer();
+
+	        while ((inputLine = in.readLine()) != null) {
+	
+	                response.append(inputLine);
+	
+	        }
+	
+	        in.close();
+	        
+	    	Scanner sc = new Scanner(response.toString());
+	    	
+	    	String text = sc.next();
+	    	while(text.indexOf("value|") == -1){
+	    		text = sc.next();
+	    	}
+	    	
+	    	int startIndex = text.indexOf("value|") + 6;
+	    	
+	    	return text.substring(startIndex);
+	
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+
+		return null;
 	}
 	
 	public boolean canMoveToSquare(Piece p, Pair square, Pair piecePos, Piece[][] ChessBoard, Pair WKingPos, Pair BKingPos, 
@@ -354,8 +438,7 @@ public class SOAPClient {
 		
 		return false;
 	}
-	
-	
+
 	public String convertToFEDString(Piece[][] ChessBoard, Players p, boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, 
 			Pair enPassant, int numHalfMoves){
 		//https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation
@@ -422,14 +505,15 @@ public class SOAPClient {
 			FED += "-";
 		
 		if(enPassant == null){
-			FED += " - ";
+			FED += " -";
 		}else{
 			//do stuff
 		}
 		
+		/*
 		FED += numHalfMoves + " ";
 		FED += numHalfMoves/2;
-		
+		*/
 		return FED;
 	}
 }

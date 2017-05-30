@@ -1,5 +1,7 @@
 package chess_game.chess_pieces;
 
+import java.util.ArrayList;
+
 import chess_game.MoveStates;
 import chess_game.Pair;
 import chess_game.PieceTypes;
@@ -10,10 +12,20 @@ public abstract class Piece implements Cloneable{
 	private PieceTypes type;
 	private int numMoves = 0;
 	private int lastMoved = 0;
+	private int baseIndex;
 	
-	public Piece(Players color, PieceTypes type){
+	public Piece(Players color, PieceTypes type, int index){
 		this.color = color;
 		this.type = type;
+		this.baseIndex = index;
+	}
+	
+	public int getIndex(){
+		if(color == Players.WHITE){
+			return baseIndex;
+		}else{
+			return baseIndex + 1;
+		}
 	}
 	
 	public Players getColor(){
@@ -59,6 +71,9 @@ public abstract class Piece implements Cloneable{
 	public abstract MoveStates[][] getPossibleMoves(Pair pair, Piece[][] ChessBoard,  Pair WKingPos, Pair BKingPos, int numHalfMoves,
 			boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, boolean checkForResultingCheck);
 
+	public abstract ArrayList<MoveObject> getOnlyPossibleMoves(Pair pair, Piece[][] ChessBoard,  Pair WKingPos, Pair BKingPos, int numHalfMoves,
+			boolean whiteKingCastle, boolean whiteQueenCastle, boolean blackKingCastle, boolean blackQueenCastle, boolean checkForResultingCheck);
+	
 	@Override
 	public Object clone() {
 		try{  

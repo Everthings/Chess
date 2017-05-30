@@ -12,13 +12,14 @@ public class Runner {
 	JFrame frame = new JFrame();
 	int gameType = 0;
 	int gamePlayer = 2;
+	int humanColor = -1;//usually not used
 	
 	public static void main(String args[]){	
 		new Runner();
 	}
 	
 	Runner(){
-		
+	
 		initWindow();
 		OptionScreen optionScreen = new OptionScreen(600, 700);
 		frame.add(optionScreen);
@@ -26,10 +27,19 @@ public class Runner {
 		
 		getGameType(optionScreen);
 		getGamePlayer(optionScreen);
+
+		Game game = new Game(gameType, gamePlayer);
 		
+		if(gamePlayer == 1){//Human vs AI
+			getPlayingColor(optionScreen);
+			
+			if(humanColor == 0)
+				game.setAIColor(Players.BLACK);
+			else
+				game.setAIColor(Players.WHITE);
+		}
 		frame.remove(optionScreen);
 		
-		Game game = new Game(gameType, gamePlayer);
 		game.addListener(new GameListener(){
 
 			@Override
@@ -67,7 +77,7 @@ public class Runner {
 			}
 			
 		});
-		screen.add(new String[]{"Regular", "960", "3-Check", "King of the Hill", "Test"});
+		screen.add(new String[]{"Regular", "960", "3-Check", "King of the Hill", "*CHALLENGE BEWARE*"});
 		frame.repaint();
 		
 		synchronized(optionScreenLock){
@@ -118,6 +128,44 @@ public class Runner {
 		screen.removeAllButtons();
 		screen.removeAllListeners();
 	}
+
+	public void getPlayingColor(OptionScreen screen){
+		
+		Object optionScreenLock = new Object();
+		
+		screen.addListener(new OptionListener(){
+
+			@Override
+			public void selected(int i) {
+				humanColor = i;
+				
+				synchronized(optionScreenLock){
+					optionScreenLock.notify();
+				}
+			}
+
+			@Override
+			public void refresh() {
+				// TODO Auto-generated method stub
+			}
+			
+		});
+		screen.add(new String[]{"White", "Black"});
+		frame.setTitle("Choose A Color To Play");
+		
+		synchronized(optionScreenLock){
+			try {
+				optionScreenLock.wait();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		screen.removeAllButtons();
+		screen.removeAllListeners();
+		frame.setTitle("Chess");
+	}
 	
 	public void initWindow(){
 		//post: creates a frame and starts a thread for constant repaint; Note: the repainting thread is not ideal, but makes my life easier =)
@@ -160,8 +208,19 @@ public class Runner {
 							getGameType(optionScreen);
 							getGamePlayer(optionScreen);
 							
-							frame.remove(optionScreen);
 							Game game = new Game(gameType, gamePlayer);
+							
+							if(gamePlayer == 1){//Human vs AI
+								getPlayingColor(optionScreen);
+								
+								if(humanColor == 0)
+									game.setAIColor(Players.BLACK);
+								else
+									game.setAIColor(Players.WHITE);
+								
+							}
+							frame.remove(optionScreen);
+							
 							game.addListener(new GameListener(){
 
 								@Override

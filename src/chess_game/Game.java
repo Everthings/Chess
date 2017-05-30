@@ -23,14 +23,10 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
-import chess_game.chess_pieces.Bishop;
+import chess_game.analysis.AIReturnObject;
 import chess_game.chess_pieces.Empty;
-import chess_game.chess_pieces.King;
-import chess_game.chess_pieces.Knight;
-import chess_game.chess_pieces.Pawn;
 import chess_game.chess_pieces.Piece;
 import chess_game.chess_pieces.Queen;
-import chess_game.chess_pieces.Rook;
 import chess_game.game_modes.AbstractGame;
 import chess_game.game_modes.KingOfHillGame;
 import chess_game.game_modes.NineSixtyGame;
@@ -50,6 +46,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	int response;
 	final int HUMAN = 0;
 	final int AI = 1;
+	Players AI_COLOR = Players.BLACK;
 
 	final int BLOCK_WIDTH = 75;
 	final int BLOCK_HEIGHT = 75;
@@ -83,6 +80,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	int my = 0;
 	
 	boolean animating = false;
+	volatile Pair animatedPiece = null;
 
 	MoveStates[][] possibleMoves = new MoveStates[8][8];
 	
@@ -92,12 +90,14 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	ArrayList<Pair> blackPosHistory = new ArrayList<Pair>();
 	ArrayList<Pair> whitePosHistory = new ArrayList<Pair>();
 	
-	ArrayList<Drawable> drawables = new ArrayList<Drawable>();
+	volatile ArrayList<Drawable> drawables = new ArrayList<Drawable>();
 	
 	int opacity = 255;
 	AbstractGame game;
 	SOAPClient client = new SOAPClient();
 	boolean AIRunning = true;
+	int depth = 4;
+	chess_game.analysis.AI ai = new chess_game.analysis.AI(depth);
 	
 	Game(int gameType, int gamePlayer){
 		
@@ -127,7 +127,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		final int NINE_SIXTY = 1;
 		final int THREE_CHECK = 2;
 		final int KING_OF_HILL = 3;
-		final int TEST = 4;
+		final int END_GAME = 4;
 		if(gameType == REGULAR){
 			game = new RegularGame();
 		}else if(gameType == NINE_SIXTY){
@@ -136,7 +136,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 			game = new ThreeCheckGame();
 		}else if(gameType == KING_OF_HILL){
 			game = new KingOfHillGame();
-		}else if(gameType == TEST){
+		}else if(gameType == END_GAME){
 			game = new TestGame();
 		}
 		
@@ -163,33 +163,26 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		
 		if(gamePlayer == 2){
 			new Thread(new Runnable(){
-	
+
 				@Override
 				public void run() {
-					while(AIRunning){
-						if(gameType == TEST)
-							makeAIMove2(Players.WHITE);
-						else
-							makeAIMove(Players.WHITE);
-						switchTurn();
-						if(ChessUtil.isCheck(Players.BLACK, ChessBoard, game.getWhiteKingPos(), game.getBlackKingPos())){
-							game.incrementNumChecks(getOpponent(Players.BLACK));
-						}
-						checkForGameEnd(Players.BLACK);
-						
-						if(gameType == TEST)
-							makeAIMove2(Players.BLACK);
-						else
-							makeAIMove(Players.BLACK);
-						switchTurn();
-						if(ChessUtil.isCheck(Players.WHITE, ChessBoard, game.getWhiteKingPos(), game.getBlackKingPos())){
-							game.incrementNumChecks(getOpponent(Players.WHITE));
-						}
-						checkForGameEnd(Players.WHITE);
-					}
+					runAIvsAI(Players.WHITE);
 				}
 				
 			}).start();
+				
+		}
+	}
+	
+	public void runAIvsAI(Players p){
+		if(AIRunning){
+			makeAIMove2(p);
+			switchTurn();
+			if(ChessUtil.isCheck(Players.BLACK, game.getChessBoard(), game.getWhiteKingPos(), game.getBlackKingPos())){
+				game.incrementNumChecks(getOpponent(getOpponent(p)));
+			}
+			checkForGameEnd(getOpponent(p));
+			runAIvsAI(getOpponent(p));
 		}
 	}
 	
@@ -251,6 +244,26 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		}
 		
 		return -1;
+	}
+	
+	public void setAIColor(Players aiColor){//for Human vs AI
+		this.AI_COLOR = aiColor;
+
+		if(aiColor == Players.WHITE){
+			
+			Timer timer2 = new Timer();
+			
+			timer2.schedule(new TimerTask(){
+
+				@Override
+				public void run() {
+					makeAIMove2(aiColor);
+					saveCurrentBoard();
+					switchTurn();
+				}
+				
+			}, 200);
+		}
 	}
 	
 	public boolean isInt(String str){
@@ -356,7 +369,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 			Pair pair = getBlock(mx, my);
 
 			if(!isBack(pair)){ // if hasn't clicked back button
-				if(isPiece(pair) && ChessBoard[pair.y][pair.x].getColor() == Players.WHITE){
+				if(isPiece(pair) && ChessBoard[pair.y][pair.x].getColor() == getOpponent(AI_COLOR)){
 					oldblock = pair;
 					possibleMoves = ChessUtil.getPossibleMoves(oldblock, ChessBoard, game.getWhiteKingPos(), game.getBlackKingPos(), game.getHalfMoves(), game.whiteKingCastle(), game.whiteQueenCastle(), game.blackKingCastle(), game.blackQueenCastle(), true);
 					selected = SELECTED;
@@ -411,11 +424,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 							game.incrementNumChecks(getOpponent(player));
 						}
 						checkForGameEnd(player);
-						
-						if(gameType == 4)
-							makeAIMove2(Players.BLACK);
-						else
-							makeAIMove(Players.BLACK);
+						makeAIMove2(AI_COLOR);
 						saveCurrentBoard();
 						switchTurn();
 						
@@ -442,11 +451,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 					}
 					checkForGameEnd(player);
 					repaint();
-					
-					if(gameType == 4)
-						makeAIMove2(Players.BLACK);
-					else
-						makeAIMove(Players.BLACK);
+					makeAIMove2(AI_COLOR);
 					saveCurrentBoard();
 					switchTurn();
 					
@@ -577,13 +582,12 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	public void animate(Pair oldblock, Pair newblock, MoveStates type){
 		
 		Object animateLock = new Object();
-		
+	
 		Piece[][] ChessBoard = game.getChessBoard();
 		
-		Piece piece = ChessBoard[oldblock.y][oldblock.x];
-		DrawableImage image = new DrawableImage(getImage(oldblock.y, oldblock.x), getImagePixelsX(oldblock.x), getImagePixelsY(oldblock.y));
+		DrawableImage image = new DrawableImage(getImage(oldblock.y, oldblock.x, ChessBoard), getImagePixelsX(oldblock.x), getImagePixelsY(oldblock.y));
 		drawables.add(image);
-		ChessBoard[oldblock.y][oldblock.x] = new Empty();//removes piece so it isn't draw(re-added later)
+		animatedPiece = oldblock;
 		animating = true;
 		
 		timer.scheduleAtFixedRate(new TimerTask(){
@@ -598,6 +602,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 
 			@Override
 			public void run() {
+				
 				if(counter < numIterations){
 					image.setX(image.getX() + movX / mag * movRate);
 					image.setY(image.getY() + movY / mag * movRate);
@@ -607,11 +612,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 					synchronized(animateLock){
 						animateLock.notify();
 					}
-					
-					drawables.remove(image);
-					animating = false;
-					ChessBoard[oldblock.y][oldblock.x] = piece;
-					game.movePiece(oldblock, newblock, type);
+
 					this.cancel();
 				}
 				
@@ -628,6 +629,11 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 				e.printStackTrace();
 			}
 		}
+
+		animating = false;
+		animatedPiece = null;
+		drawables.remove(image);
+		game.movePiece(oldblock, newblock, type);
 	}
 	
 	public void switchTurn(){
@@ -668,7 +674,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 
 	public boolean isValidMove(Pair newblock){//compares move with possibleMoves array
 		
-		if(possibleMoves[newblock.y][newblock.x] == MoveStates.OPEN){
+		if(possibleMoves[newblock.y][newblock.x] != MoveStates.CLOSED){
 			return true;
 		}
 
@@ -689,17 +695,97 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	}
 
 	public void makeAIMove2(Players p){
-		String move = client.getMove(game.getChessBoard(), p, game.whiteKingCastle(), game.whiteQueenCastle(), game.blackKingCastle(), game.blackQueenCastle(), null, game.getHalfMoves());
-	    System.out.println(move);	
 		
-		Pair oldblock = client.getPieceStartingLocationFromString(move, p, game.getChessBoard(), game.getWhiteKingPos(), game.getBlackKingPos(), game.whiteKingCastle(), game.whiteQueenCastle(), game.blackKingCastle(), game.blackQueenCastle(), game.getHalfMoves());
-		Pair newblock = client.getPieceEndingLocationFromString(move);
-		
-		animate(oldblock, newblock, MoveStates.OPEN);
-		checkPromote(newblock, p, true);
+		boolean moved = false;
+		String opening = client.getOppeningMove(game.getChessBoard(), p, game.whiteKingCastle(), game.whiteQueenCastle(), game.blackKingCastle(), game.blackQueenCastle(), null, game.getHalfMoves());
+		if(opening != null){
+			System.out.println("Running Opening");
+			System.out.println(opening);
+
+			Pair[] pairs = client.decodeLocationsFromOpeningString(opening);
+
+			oldblock = pairs[0];
+			newblock = pairs[1];
+
+			if(game.getChessBoard()[oldblock.y][oldblock.x].getType() == PieceTypes.KING){
+				if(game.getKingCastle(p)){
+					if(oldblock.x == 4 && newblock.x == 6){
+						newblock.x = 7;
+						game.castle(oldblock, newblock);
+						moved = true;
+					}
+				}
+
+				if(game.getQueenCastle(p)){
+					if(oldblock.x == 4 && newblock.x == 2){
+						newblock.x = 0;
+						game.castle(oldblock, newblock);
+						moved = true;
+					}
+				}	   
+			}
+		}else if(ChessUtil.getNumberOfPieces(game.getChessBoard()) > 6){
+			
+			System.out.println("Running Mid Game");
+			ai.updateLine(p, game.getChessBoard(), game.getHalfMoves(), game.whiteKingCastle(), game.whiteQueenCastle(), game.blackKingCastle(), game.blackQueenCastle());
+			AIReturnObject retObject = ai.makeMove(game.getWhiteKingPos(), game.getBlackKingPos());
+			if(!ChessUtil.isCheck(p, retObject.getPosition().getBoard(), ChessUtil.getKingPosition(Players.WHITE, retObject.getPosition().getBoard()), ChessUtil.getKingPosition(Players.BLACK, retObject.getPosition().getBoard()))){
+				oldblock = retObject.getMove().getOldPair();
+				newblock = retObject.getMove().getNewPair();
+				
+				animate(oldblock, newblock, retObject.getMove().getMoveType());
+				checkPromote(newblock, p, true);
+				
+				System.out.println("oldblock: " + oldblock.x + " " + oldblock.y);
+				System.out.println("newblock: " + newblock.x + " " + newblock.y +"\n\n");
+				
+				moved = true;
+				
+			}else{
+				 String move = client.getMidMove(game.getChessBoard(), p, game.whiteKingCastle(), game.whiteQueenCastle(), game.blackKingCastle(), game.blackQueenCastle(), null, game.getHalfMoves());
+			    System.out.println(move);	
+
+			    Pair[] pairs = client.decodeLocationsFromMidString(move);
+
+			    oldblock = pairs[0];
+			    newblock = pairs[1];
+
+			    if(game.getChessBoard()[oldblock.y][oldblock.x].getType() == PieceTypes.KING){
+				    if(game.getKingCastle(p)){
+				    	if(oldblock.x == 4 && newblock.x == 6){
+				    		newblock.x = 7;
+				    		game.castle(oldblock, newblock);
+				    		moved = true;
+				    	}
+				    }
+
+				    if(game.getQueenCastle(p)){
+				    	if(oldblock.x == 4 && newblock.x == 2){
+				    		newblock.x = 0;
+				    		game.castle(oldblock, newblock);
+				    		moved = true;
+				    	}
+				    }	   
+				}
+			}
+			
+		}else{
+			System.out.println("Running End Game");
+			String move = client.getEndMove(game.getChessBoard(), p, game.whiteKingCastle(), game.whiteQueenCastle(), game.blackKingCastle(), game.blackQueenCastle(), null, game.getHalfMoves());
+			System.out.println(move + "\n");	
+
+			oldblock = client.decodeOpeningLocationFromString(move, p, game.getChessBoard(), game.getWhiteKingPos(), game.getBlackKingPos(), game.whiteKingCastle(), game.whiteQueenCastle(), game.blackKingCastle(), game.blackQueenCastle(), game.getHalfMoves());
+			newblock = client.decodeEndingLocationFromString(move);
+		}
+
+		if(!moved){
+			animate(oldblock, newblock, MoveStates.OPEN);
+			checkPromote(newblock, p, true);
+		}
 	}
 	
 	public void makeAIMove(Players p){
+	
 		Piece[][] ChessBoard = game.getChessBoard();
 		boolean PieceChosen = false;
 		boolean MoveChosen = false;
@@ -707,9 +793,9 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 		int moves = 0;
 		int x = 0;
 		int y = 0;
-		
+	
 		while(!MoveChosen){
-
+			
 			int randomPiece = r.nextInt(100);
 			int piecesPassed = 0;
 			int a = 0;
@@ -748,7 +834,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 					}
 				}
 			}
-
+		
 			if(moves == 0){// if there are no moves, pick another piece
 				PieceChosen = false;
 			}else{
@@ -756,12 +842,12 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 				int movesPassed = 0;
 				for(int c = 0; c < 8; c++){
 					for(int d = 0; d < 8; d++){
-						if(possibleMoves[d][c] == MoveStates.OPEN || possibleMoves[d][c] == MoveStates.CASTLE){
+						if(possibleMoves[d][c] != MoveStates.CLOSED){
 							if(selectMove == movesPassed){
 								oldblock = new Pair(x, y);
 								newblock = new Pair(c, d);
-									
-								if(possibleMoves[d][c] == MoveStates.OPEN){
+								
+								if(possibleMoves[d][c] == MoveStates.OPEN || possibleMoves[d][c] == MoveStates.TAKE){
 									animate(oldblock, newblock, MoveStates.OPEN);
 									checkPromote(newblock, p, true);
 								}else{
@@ -787,6 +873,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 			if(block.y == 0 && ChessBoard[block.y][block.x].getType() == PieceTypes.PAWN){
 				if(autoQueen){
 					ChessBoard[block.y][block.x] = new Queen(Players.WHITE);
+					game.setChessBoard(ChessBoard);
 				}else{
 					openSelector(Players.WHITE, block);
 				}
@@ -796,6 +883,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 			if(block.y == 7 && ChessBoard[block.y][block.x].getType() == PieceTypes.PAWN){
 				if(autoQueen){
 					ChessBoard[block.y][block.x] = new Queen(Players.BLACK);
+					game.setChessBoard(ChessBoard);
 				}else{
 					openSelector(Players.BLACK, block);
 				}
@@ -813,8 +901,8 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	
 			@Override
 			public void selected(Piece p) {
-				
 				ChessBoard[block.y][block.x] = p;
+				game.setChessBoard(ChessBoard);
 				removeMouseListener(pSelect);
 				removeMouseMotionListener(pSelect);
 				synchronized(selectorLock){
@@ -993,6 +1081,8 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 			whitePosHistory.remove(whitePosHistory.size() - 1);
 			blackPosHistory.remove(blackPosHistory.size() - 1);
 			
+			game.setChessBoard(ChessBoard);
+			
 			game.decrementHalfMoves();
 			
 			switchTurn();
@@ -1009,8 +1099,16 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 			
 			game.setHalfMoves(0);
 			game.resetChecks();
+			
+			game.setChessBoard(ChessBoard);
+			
+			if(AI_COLOR == Players.WHITE && response == 1){
+				makeAIMove2(AI_COLOR);
+				saveCurrentBoard();
+				switchTurn();
+			}
 		}
-		
+
 		repaint();
 	}
 
@@ -1044,7 +1142,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	@Override
 	public void paintComponent(Graphics g){ 
 		super.paintComponent(g);
-		
+
 		Graphics2D g2 = (Graphics2D) g;
 		g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float)opacity/255));
 
@@ -1063,10 +1161,15 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 
 		g2.drawImage(BACK, getImagePixelsX(3) + BLOCK_WIDTH/2, getImagePixelsY(8), null);
 
+		Piece[][] ChessBoard = game.getChessBoard();
+		
+		if(animatedPiece != null)
+			ChessBoard[animatedPiece.y][animatedPiece.x] = new Empty();
+		
 		for(int a = 0; a <= 7; a++){
 			for(int b = 0; b <= 7; b++){
 				if(b != oldblock.y || a != oldblock.x || !dragging){
-					g2.drawImage(getImage(b, a), getImagePixelsX(a), getImagePixelsY(b), null);
+					g2.drawImage(getImage(b, a, ChessBoard), getImagePixelsX(a), getImagePixelsY(b), null);
 				}
 			}
 		}	
@@ -1075,19 +1178,21 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 			drawPossibleMoves(g);
 			highlight(oldblock, g);
 			if(dragging){
-				BufferedImage img = getImage(oldblock.y, oldblock.x);
+				BufferedImage img = getImage(oldblock.y, oldblock.x, ChessBoard);
 				g2.drawImage(img, mx - img.getWidth()/2, my - img.getHeight()/2, null);
 			}
 		}
 		
-		for(Drawable d: drawables){
-			d.draw(g);
+		try{
+			for(Drawable d: drawables){
+				d.draw(g);
+			}
+		}catch(Exception e){
+			
 		}
 	}
 	
-	public BufferedImage getImage(int row, int col){
-		
-		Piece[][] ChessBoard = game.getChessBoard();
+	public BufferedImage getImage(int row, int col, Piece[][] ChessBoard){
 		
 		if(ChessBoard[row][col] != null){
 			switch(ChessBoard[row][col].getType()){
@@ -1136,7 +1241,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	public void mousePressed(MouseEvent e) {
 		mx = e.getX();
 		my = e.getY();
-		if(!animating)
+		if(!animating && (response != AI || (player == getOpponent(AI_COLOR))))
 			handleMouseClick();
 	}
 
@@ -1144,7 +1249,7 @@ public class Game extends JPanel implements MouseListener, MouseMotionListener{
 	public void mouseReleased(MouseEvent e) {
 		mx = e.getX();
 		my = e.getY();
-		if(!animating)
+		if(!animating && (response != AI || (player == getOpponent(AI_COLOR))))
 			handleMouseRelease();
 	}
 

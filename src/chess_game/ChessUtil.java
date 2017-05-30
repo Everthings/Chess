@@ -1,10 +1,109 @@
 package chess_game;
 
+import chess_game.analysis.Position;
 import chess_game.chess_pieces.Empty;
 import chess_game.chess_pieces.King;
 import chess_game.chess_pieces.Piece;
+import chess_game.chess_pieces.Queen;
+import chess_game.chess_pieces.Rook;
 
 public class ChessUtil {
+	
+	public static long movePiece(long hash, Players colorTurn, Position p, Pair oldblock, Pair newblock, MoveStates type, int numHalfMoves){
+
+		Piece[][] newChessBoard = p.getBoard();
+		
+		if(type == MoveStates.CASTLE){
+			hash = castle(hash, newChessBoard, oldblock, newblock, numHalfMoves);
+		}else if(type == MoveStates.PASSANT){
+			hash = passant(hash, newChessBoard, oldblock, newblock, numHalfMoves);
+		}else if(type == MoveStates.OPEN || type == MoveStates.TAKE){	
+			newChessBoard[oldblock.y][oldblock.x].incrementMoves();
+			newChessBoard[oldblock.y][oldblock.x].setLastMoved(numHalfMoves);
+			
+			if(newChessBoard[newblock.y][newblock.x].getType() == PieceTypes.KING)
+				p.kingsAlive = false;
+
+			hash = Position.addXOR(hash, newblock.y, newblock.x, newChessBoard[newblock.y][newblock.x].getIndex());
+			newChessBoard[newblock.y][newblock.x] = newChessBoard[oldblock.y][oldblock.x];
+			hash = Position.addXOR(hash, newblock.y, newblock.x, newChessBoard[newblock.y][newblock.x].getIndex());
+			hash = Position.addXOR(hash, oldblock.y, oldblock.x, newChessBoard[oldblock.y][oldblock.x].getIndex());
+			newChessBoard[oldblock.y][oldblock.x] = new Empty();
+			
+			if(colorTurn == Players.WHITE){
+				if(newblock.y == 0 && newChessBoard[newblock.y][newblock.x].getType() == PieceTypes.PAWN){
+					newChessBoard[newblock.y][newblock.x] = new Queen(Players.WHITE);
+					
+					hash = Position.addXOR(hash, newblock.y, newblock.x, newChessBoard[newblock.y][newblock.x].getIndex());
+				}
+			}else if(colorTurn == Players.BLACK){
+				if(newblock.y == 7 && newChessBoard[newblock.y][newblock.x].getType() == PieceTypes.PAWN){
+					newChessBoard[newblock.y][newblock.x] = new Queen(Players.BLACK);
+					
+					hash = Position.addXOR(hash, newblock.y, newblock.x, newChessBoard[newblock.y][newblock.x].getIndex());
+				}
+			}
+			
+		}
+		
+		return hash;
+	}
+	
+	private static long castle(long hash, Piece[][] newChessBoard, Pair oldblock, Pair newblock, int numHalfMoves){
+	
+		Players p = newChessBoard[oldblock.y][oldblock.x].getColor();
+		
+		hash = Position.addXOR(hash, newblock.y, newblock.x, newChessBoard[newblock.y][newblock.x].getIndex());
+		hash = Position.addXOR(hash, oldblock.y, oldblock.x, newChessBoard[oldblock.y][oldblock.x].getIndex());
+		newChessBoard[oldblock.y][oldblock.x] = new Empty();
+		newChessBoard[newblock.y][newblock.x] = new Empty();
+		
+		if(newblock.x > oldblock.x){
+			newChessBoard[newblock.y][6] = new King(p);// places king in correct spot
+			hash = Position.addXOR(hash, newblock.y, 6, newChessBoard[newblock.y][6].getIndex());
+			newChessBoard[newblock.y][5] = new Rook(p);
+			hash = Position.addXOR(hash, newblock.y, 5, newChessBoard[newblock.y][5].getIndex());
+			
+			newChessBoard[newblock.y][6].incrementMoves();
+			newChessBoard[newblock.y][6].setLastMoved(numHalfMoves);
+			newChessBoard[newblock.y][5].incrementMoves();
+			newChessBoard[newblock.y][5].setLastMoved(numHalfMoves);
+		}else{
+			newChessBoard[newblock.y][2] = new King(p);
+			hash = Position.addXOR(hash, newblock.y, 2, newChessBoard[newblock.y][2].getIndex());
+			newChessBoard[newblock.y][3] = new Rook(p);
+			hash = Position.addXOR(hash, newblock.y, 3, newChessBoard[newblock.y][3].getIndex());
+			
+			newChessBoard[newblock.y][2].incrementMoves();
+			newChessBoard[newblock.y][2].setLastMoved(numHalfMoves);
+			newChessBoard[newblock.y][3].incrementMoves();
+			newChessBoard[newblock.y][3].setLastMoved(numHalfMoves);
+		}
+		
+		return hash;
+	}
+	
+	private static long passant(long hash, Piece[][] newChessBoard, Pair oldblock, Pair newblock, int numHalfMoves){
+		
+		Players p = newChessBoard[oldblock.y][oldblock.x].getColor();
+		
+		if(p == Players.WHITE){
+			hash = Position.addXOR(hash, newblock.y + 1, newblock.x, newChessBoard[newblock.y + 1][newblock.x].getIndex());
+			newChessBoard[newblock.y + 1][newblock.x] = new Empty();
+		}if(p == Players.BLACK){
+			hash = Position.addXOR(hash, newblock.y - 1, newblock.x, newChessBoard[newblock.y + 1][newblock.x].getIndex());
+			newChessBoard[newblock.y - 1][newblock.x] = new Empty();
+		}
+		
+		newChessBoard[oldblock.y][oldblock.x].incrementMoves();
+		newChessBoard[oldblock.y][oldblock.x].setLastMoved(numHalfMoves);
+		newChessBoard[newblock.y][newblock.x] = newChessBoard[oldblock.y][oldblock.x];
+		hash = Position.addXOR(hash, newblock.y, newblock.x, newChessBoard[newblock.y][newblock.x].getIndex());
+		newChessBoard[oldblock.y][oldblock.x] = new Empty();
+		hash = Position.addXOR(hash, oldblock.y, oldblock.x, newChessBoard[oldblock.y][oldblock.x].getIndex());
+
+		return hash;
+	}
 	
 	public static int getNumberOfPieces(Piece[][] ChessBoard){
 		int num = 0;
@@ -44,7 +143,7 @@ public class ChessUtil {
 					
 					for(int i = 0; i < possibleMoves.length; i++){
 						for(int j = 0; j < possibleMoves[i].length; j++){
-							if(possibleMoves[j][i] == MoveStates.OPEN){
+							if(possibleMoves[j][i] == MoveStates.OPEN || possibleMoves[j][i] == MoveStates.TAKE){
 								return true;
 							}
 						}
@@ -83,6 +182,8 @@ public class ChessUtil {
 			for(int b = 0; b < pos2[0].length; b++){
 				if(pos2[a][b] == MoveStates.OPEN)
 					possibleMoves[a][b] = MoveStates.OPEN;
+				else if(pos2[a][b] == MoveStates.TAKE)
+					possibleMoves[a][b] = MoveStates.TAKE;
 			}
 		}
 		
@@ -124,11 +225,11 @@ public class ChessUtil {
 						}
 						
 						if(p == Players.BLACK){
-							if(possibleMoves[BKingPos.y][BKingPos.x] == MoveStates.OPEN){
+							if(possibleMoves[BKingPos.y][BKingPos.x] == MoveStates.TAKE){
 								return true;
 							}
 						}else if(p == Players.WHITE){
-							if(possibleMoves[WKingPos.y][WKingPos.x] == MoveStates.OPEN){
+							if(possibleMoves[WKingPos.y][WKingPos.x] == MoveStates.TAKE){
 								return true;
 							}
 						}
