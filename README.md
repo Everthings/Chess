@@ -1,5 +1,5 @@
 # Chess
-A chess program which supports the chess variants 960, 3-Check, King Of The Hill, as well as the regular game of chess.
+A chess program which supports the chess variants 960, 3-Check, King Of The Hill, as well as the regular game of chess. Full AI implementation  using Minimax + alpha-beta pruning, opening tables, and endgame tablebase.
 
 ## Installation
 Download the contents above into a new eclipse java project.
